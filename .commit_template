@@ -1,0 +1,13 @@
+# Type: feat, fix, refactor, docs, chore, style, etc.
+# Keep the title under 50 characters.
+# Use an imperative tone (e.g., "Add", "Fix", "Update").
+
+<type>: <short summary>
+
+# Add a longer description if necessary.
+# Use the body to explain why the change is made, what it impacts, etc.
+# Example:
+# - Why was this change necessary?
+# - What was the motivation behind the change?
+# - How does this relate to other work?
+
