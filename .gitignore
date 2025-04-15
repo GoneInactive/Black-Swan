@@ -1,0 +1,32 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# Jupyter notebooks checkpoints
+.ipynb_checkpoints/
+
+# Logs and data
+logs/
+*.log
+*.csv
+*.json
+
+# Environment and IDE stuff
+.env
+.venv/
+env/
+venv/
+.idea/
+.vscode/
+
+# Configs and secrets
+config/config.yaml
+
+# OS files
+.DS_Store
+Thumbs.db
