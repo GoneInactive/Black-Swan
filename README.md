@@ -15,6 +15,37 @@ BlackSwan is an intelligent and modular crypto trading bot designed to navigate 
 
 ## 🛠️ Project Structure
 
+```
+crypto-trading-bot/
+├── README.md
+├── LICENSE
+├── .gitignore
+├── requirements.txt / environment.yml
+├── config/
+│   └── config.yaml
+├── data/
+│   └── historical/ (or logs/, if storing logs here)
+├── logs/
+│   └── trade_log.txt
+├── models/
+│   └── strategy_model.py
+├── src/
+│   ├── __init__.py
+│   ├── main.py
+│   ├── trader.py
+│   ├── exchange_api.py
+│   ├── strategy/
+│   │   ├── __init__.py
+│   │   ├── moving_average.py
+│   │   └── rsi.py
+│   ├── utils/
+│   │   └── helpers.py
+├── tests/
+│   ├── test_strategy.py
+│   └── test_api.py
+└── docs/
+    └── architecture.md
+```
 
 ---
 
