@@ -1,0 +1,56 @@
+# Bytecode / Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+
+# Jupyter and IPython
+.ipynb_checkpoints/
+
+# Environment + dependencies
+env/
+venv/
+*.env
+.env
+.env.*
+
+# macOS / Linux / Windows
+.DS_Store
+Thumbs.db
+
+# Logs / dumps / runtime files
+*.log
+*.pid
+*.sqlite3
+*.db
+
+# Config and credentials
+config/config.yaml
+config/secrets.yaml
+*.key
+*.pem
+
+# VSCode + IDEs
+.vscode/
+.idea/
+
+# DearPyGUI UI state (if saved)
+*.ini
+
+# Test artifacts
+tests/__pycache__/
+*.pytest_cache/
+
+# Personal notebooks / scratch files
+sandbox/
+*.ipynb
+
+# Plot images or output files
+plots/
+*.png
+*.jpg
+*.csv
+
+# Git hooks backup files (optional)
+.git/hooks/*.sample
