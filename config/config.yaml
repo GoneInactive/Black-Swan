@@ -1,0 +1,24 @@
+# config/config.example.yaml
+
+kraken:
+  api_key: "YOUR_KRAKEN_API_KEY"
+  api_secret: "YOUR_KRAKEN_API_SECRET"
+
+trade:
+  base_asset: "BTC"
+  quote_asset: "USD"
+  interval: "1h"
+  order_size: 0.001
+  slippage: 0.01
+  paper_trading: true  # Set to false for live trading
+
+strategy:
+  name: "sma"
+  parameters:
+    short_window: 20
+    long_window: 50
+
+backtest:
+  start_date: "2023-01-01"
+  end_date: "2023-12-31"
+  initial_balance: 10000
