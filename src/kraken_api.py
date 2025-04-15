@@ -2,55 +2,57 @@
 
 import krakenex
 import time
-from pykrakenapi import KrakenAPI
+import sys
+import os
+import yaml
+
+import asyncio
+from kraken.spot import SpotAsyncClient
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
 class KrakenClient:
-    def __init__(self, api_key, api_secret):
-        self.k = krakenex.API()
-        self.k.key = api_key
-        self.k.secret = api_secret
-        self.kraken = KrakenAPI(self.k)
+    def __init__(self):
+        def load_config():
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml"))
+            with open(config_path, "r") as f:
+                return yaml.safe_load(f)
 
-    def get_balance(self):
-        try:
-            return self.kraken.get_account_balance()
-        except Exception as e:
-            print(f"[!] Error fetching balance: {e}")
-            return None
+        config = load_config()
 
-    def get_ohlc(self, pair='XXBTZUSD', interval=60):
-        """Get OHLC data. Interval is in minutes."""
+        # Initialize Kraken API client
+        self.client = SpotAsyncClient(
+            key=config['kraken']['api_key'],
+            secret=config['kraken']['api_secret']
+        )
+    
+    async def get_balance(self):
         try:
-            df, _ = self.kraken.get_ohlc_data(pair, interval=interval)
-            df = df.rename(columns=str.lower)
-            return df
-        except Exception as e:
-            print(f"[!] Error fetching OHLC data: {e}")
-            return None
-
-    def place_order(self, pair, side, order_type='market', volume=0.001):
-        """
-        Places a market order. `side` is 'buy' or 'sell'.
-        """
-        try:
-            response = self.k.query_private('AddOrder', {
-                'pair': pair,
-                'type': side,
-                'ordertype': order_type,
-                'volume': volume
-            })
-            if response.get('error'):
-                print(f"[!] Kraken API error: {response['error']}")
-            else:
-                print(f"[✓] Order placed: {side} {volume} {pair}")
+            response = await self.client.request("POST","/0/private/Balance")
             return response
+        finally:
+            await self.client.async_close()
+
+    async def get_orderbook(self, depth=3, pair='XXBTZUSD'):
+        """
+        Get the order book (market depth) for a specific pair.
+        `depth` is the number of bid/ask entries to fetch.
+        """
+        try:
+            response = await self.client.request(
+            method="GET",
+            uri="/0/public/Depth",
+            params={
+                "pair": pair,
+                "count": depth
+                }
+            )
+            ## Price, Volume, Timestamp
+            #print(response[pair])
+            return response[pair]
         except Exception as e:
-            print(f"[!] Error placing order: {e}")
+            print(f"[!] Error fetching order book: {e}")
             return None
 
-    def get_open_orders(self):
-        try:
-            return self.kraken.get_open_orders()[0]
-        except Exception as e:
-            print(f"[!] Error fetching open orders: {e}")
-            return None
+    async def close(self):
+        await self.client.async_close()

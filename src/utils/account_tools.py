@@ -1,44 +1,30 @@
-# utils/account_tools.py
+import sys
+import os
+import yaml
 
-import krakenex
-from pykrakenapi import KrakenAPI
-from src.config_loader import KRAKEN_API_KEY, KRAKEN_API_SECRET
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
 
-# Initialize Kraken API with keys from config
-api = krakenex.API(key=KRAKEN_API_KEY, secret=KRAKEN_API_SECRET)
-k = KrakenAPI(api)
+from kraken_api import KrakenClient
 
-def get_account_balance():
-    try:
-        return k.get_account_balance()
-    except Exception as e:
-        print(f"[Error] Fetching account balance: {e}")
-        return None
 
-def get_open_orders():
-    try:
-        return api.query_private('OpenOrders')['result']['open']
-    except Exception as e:
-        print(f"[Error] Fetching open orders: {e}")
-        return None
+class AccountTools:
+    def __init__(self):
+        def load_config():
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml"))
+            with open(config_path, "r") as f:
+                return yaml.safe_load(f)
 
-def get_closed_orders():
-    try:
-        return api.query_private('ClosedOrders')['result']['closed']
-    except Exception as e:
-        print(f"[Error] Fetching closed orders: {e}")
-        return None
+        config = load_config()
 
-def get_recent_trades():
-    try:
-        return api.query_private('TradesHistory')['result']['trades']
-    except Exception as e:
-        print(f"[Error] Fetching recent trades: {e}")
-        return None
-
-def get_trade_volume():
-    try:
-        return api.query_private('TradeVolume')['result']
-    except Exception as e:
-        print(f"[Error] Fetching trade volume: {e}")
+        # Initialize Kraken API client
+        self.client = KrakenClient(
+            api_key=config['kraken']['api_key'],
+            api_secret=config['kraken']['api_secret']
+        )
+    
+    def get_balance(self):
+        balance = self.client.get_balance()
+        return balance
+    
+    def get_pnl(self):
         return None
