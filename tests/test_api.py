@@ -3,15 +3,21 @@
 import sys
 import os
 import time
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'src'))
-
-from kraken_api import KrakenClient
 import yaml
 import pprint
 
-# Load config
-with open(os.path.join("..", "config", "config.yaml")) as f:
-    config = yaml.safe_load(f)
+# Dynamically add src/ to the path
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+
+from kraken_api import KrakenClient
+
+# Load config.yaml from project-root/config/config.yaml
+def load_config():
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config", "config.yaml"))
+    with open(config_path, "r") as f:
+        return yaml.safe_load(f)
+
+config = load_config()
 
 # Initialize Kraken API client
 client = KrakenClient(
@@ -30,7 +36,7 @@ def test_balance():
 def test_ohlc():
     print("\n📈 Testing get_ohlc()")
     try:
-        pair = f"{config['trade']['base_asset']}Z{config['trade']['quote_asset']}"
+        pair = f"{config['trade']['base_asset']}{config['trade']['quote_asset']}"
         df = client.get_ohlc(pair=pair, interval=60)
         print(df.head())
     except Exception as e:
@@ -40,7 +46,7 @@ def test_ticker():
     print("\n💹 Testing get_ticker()")
     try:
         pair = f"{config['trade']['base_asset']}Z{config['trade']['quote_asset']}"
-        ticker = client.get_ticker(pair)
+        ticker = client.get_orderbook(pair)
         pprint.pprint(ticker)
     except Exception as e:
         print(f"[ERROR] get_ticker failed: {e}")
@@ -52,7 +58,7 @@ if __name__ == "__main__":
     time.sleep(1)
     test_ticker()
 
-
 '''
+Run with:
 python tests/test_api.py
 '''
