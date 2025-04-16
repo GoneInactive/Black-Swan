@@ -1,4 +1,4 @@
-<img src="logo.png" alt="drawing" width="200"> 
+<img src="BS_logo.png" alt="drawing" width="200"> 
 
 # BlackSwan - A Kraken-Exclusive Crypto Trading Bot
 
