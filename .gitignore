@@ -54,3 +54,4 @@ plots/
 
 # Git hooks backup files (optional)
 .git/hooks/*.sample
+*.bat
