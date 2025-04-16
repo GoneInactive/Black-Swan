@@ -1,47 +1,90 @@
-# src/utils/plotter.py
+import dearpygui.dearpygui as dpg
+import math
+import time
+import collections
+import threading
+import pdb
+import random
 
-from dearpygui.core import *
-from dearpygui.simple import *
 
-def plot_price(df, symbol="Crypto"):
-    """
-    Launches an interactive window to plot OHLC price data with DearPyGUI.
-    Assumes df has columns: ['timestamp', 'open', 'high', 'low', 'close']
-    """
-    if df is None or df.empty:
-        print("[!] No data to plot.")
-        return
 
-    # Convert timestamp to string (DearPyGUI doesn't like datetime)
-    df['timestamp'] = df['timestamp'].astype(str)
+class Plotter:
+    def __init__(self):
+        return None
+    
+    def test_live_plotter(self):
 
-    # Extract data
-    x = df['timestamp'].tolist()
-    y_close = df['close'].tolist()
-    y_open = df['open'].tolist()
-    y_high = df['high'].tolist()
-    y_low = df['low'].tolist()
+        nsamples = 10000
 
-    with window(f"{symbol} Price Chart"):
-        add_plot("Price Plot", height=400)
-        add_line_series("Price Plot", "Close", x, y_close)
-        add_line_series("Price Plot", "Open", x, y_open)
-        add_line_series("Price Plot", "High", x, y_high)
-        add_line_series("Price Plot", "Low", x, y_low)
-        add_plot_legend("Price Plot", location=1, horizontal=True)
-        add_text(f"Last Close: {y_close[-1]:.2f}")
-        add_button("Close Window", callback=lambda: delete_item(f"{symbol} Price Chart"))
+        global data_y
+        global data_x
+        # Can use collections if you only need the last 100 samples
+        # data_y = collections.deque([0.0, 0.0],maxlen=nsamples)
+        # data_x = collections.deque([0.0, 0.0],maxlen=nsamples)
 
-    start_dearpygui()
+        # Use a list if you need all the data. 
+        # Empty list of nsamples should exist at the beginning.
+        # Theres a cleaner way to do this probably.
+        data_y = [0.0] * nsamples
+        data_x = [0.0] * nsamples
+        data_y2 = [0.0] * nsamples
 
-'''
-Test usage in main.py:
-from utils.plotter import plot_price
-from helpers import prepare_data
+        def update_data():
+            sample = 1
+            t0 = time.time()
+            frequency=1.0
+            while True:
 
-df = kraken.get_ohlc(pair='XXBTZUSD', interval=60)
-df = prepare_data(df)
+                # Get new data sample. Note we need both x and y values
+                # if we want a meaningful axis unit.
+                t = time.time() - t0
+                y = math.sin(t)+(1/2)*t+5**random.uniform(0,1)
+                y2 = t
+                data_x.append(t)
+                data_y.append(y)
+                data_y2.append(y2)
 
-plot_price(df, symbol="BTC/USD")
-'''
+                
+                #set the series x and y to the last nsamples
+                dpg.set_value('series_tag', [list(data_x[-nsamples:]), list(data_y[-nsamples:])])          
+                dpg.fit_axis_data('x_axis')
+                dpg.fit_axis_data('y_axis')
+                
+                time.sleep(0.01)
+                sample=sample+1
+                
 
+
+        dpg.create_context()
+        with dpg.window(label='Tutorial', tag='win',width=800, height=600):
+
+            with dpg.plot(label='Line Series', height=-1, width=-1):
+                # optionally create legend
+                dpg.add_plot_legend()
+
+                # REQUIRED: create x and y axes, set to auto scale.
+                x_axis = dpg.add_plot_axis(dpg.mvXAxis, label='x', tag='x_axis')
+                y_axis = dpg.add_plot_axis(dpg.mvYAxis, label='y', tag='y_axis')
+
+
+                # series belong to a y axis. Note the tag name is used in the update
+                # function update_data
+                dpg.add_line_series(x=list(data_x),y=list(data_y), 
+                                    label='Temp', parent='y_axis', 
+                                    tag='series_tag')
+                #dpg.add_line_series(x=list(data_x),y=list(data_y2), 
+                #                    label='Temp', parent='y_axis', 
+                #                    tag='series_tag')
+                
+                    
+                                    
+        dpg.create_viewport(title='Custom Title', width=850, height=640)
+
+        dpg.setup_dearpygui()
+        dpg.show_viewport()
+
+        thread = threading.Thread(target=update_data)
+        thread.start()
+        dpg.start_dearpygui()
+
+        dpg.destroy_context()
