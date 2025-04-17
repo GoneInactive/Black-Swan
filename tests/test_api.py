@@ -63,6 +63,35 @@ async def test_clean_order_book():
     finally:
         await client.close()
 
+# async def test_get_ask():
+#     print("\n Testing get_ask()")
+#     client = KrakenClient()
+#     try:
+#         ask = await client.get_ask()
+#         print(ask)
+#         return 0
+    
+#     except Exception as e:
+#         print(f"[ERROR] get_ask() failed: {e}")
+#         return 1
+
+#     finally:
+#         await client.close()
+
+# async def test_get_bid():
+#     print("\n Testing get_bid()")
+#     client = KrakenClient()
+#     try:
+#         bid = await client.get_bid()
+#         print(bid)
+#         return 0
+    
+#     except Exception as e:
+#         print(f"[ERROR] get_bid() failed: {e}")
+#         return 1
+
+#     finally:
+#         await client.close()
 
 
 if __name__ == "__main__":
@@ -74,6 +103,6 @@ if __name__ == "__main__":
 
     print("-"*20)
     print('Test Complete.')
-    print(f"Tests Passed: {3-fails}")
+    print(f"Tests Passed: {tests-fails}")
     print(f"Tests Failed: {fails}")
     print("-"*20)
