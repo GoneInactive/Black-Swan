@@ -2,8 +2,6 @@
 
 # BlackSwan - A Kraken-Exclusive Crypto Trading Bot
 
-Black Swan is a customizable trading strategy manager that lets you build, test, and run trading strategies using Python for strategy logic and Rust for fast, reliable market data from Kraken.
-
 Together, Python and Rust combine to deliver a flexible yet powerful framework that supports both high-level strategy development and low-level system performance.
 
 ## Project Overview
