@@ -24,7 +24,7 @@ Black Swan is designed to be lightweight and adaptable—ideal for developers, q
 
 ---
 ## Getting Started & Installation 
-### Preequisites
+### Prerequisites
 - Python 3.10+
 - Rust (with `maturin` installed)
 - `pip`
