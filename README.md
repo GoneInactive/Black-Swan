@@ -81,13 +81,18 @@ python tests/test_rust_client.py
 ## Project Structure
 ---
 ```
-crypto-trading-bot/
+Black-Swan/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
 ├── requirements.txt / environment.yml
 ├── config/
 │   └── config.yaml
+├── rust_client/
+│   ├── Cargo.toml            
+│   └── src/
+│       ├── lib.rs            
+│       └── kraken_api.rs 
 ├── data/
 │   └── historical/ (or logs/, if storing logs here)
 ├── logs/
@@ -98,16 +103,25 @@ crypto-trading-bot/
 │   ├── __init__.py
 │   ├── main.py
 │   ├── trader.py
-│   ├── exchange_api.py
+│   ├── kraken_api.py
+│   ├── config_load.py
 │   ├── strategy/
 │   │   ├── __init__.py
 │   │   ├── moving_average.py
 │   │   └── rsi.py
+│   ├── clients/
+│   │   └── __init__.py
+│   │   └── kraken_python_client.py
+│   │   └── kraken_sync_client.py
 │   ├── utils/
 │   │   └── helpers.py
+│   │   └── plotter.py
+│   │   └── account_tools.py
 ├── tests/
 │   ├── test_strategy.py
 │   └── test_api.py
+│   └── test_kraken_client.py
+│   └── test_rust_client.py
 └── docs/
     └── architecture.md
 ```
