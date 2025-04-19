@@ -2,7 +2,7 @@
 
 # BlackSwan - A Kraken-Exclusive Crypto Trading Bot
 
-BlackSwan is an intelligent and modular crypto trading bot designed to navigate volatile markets and capitalize on rare opportunities—built exclusively for Kraken. Whether you're backtesting strategies or running live trades, BlackSwan provides a clean, flexible foundation for serious crypto traders.
+BlackSwan is a modular crypto trading bot platform built exclusively for Kraken, designed to help traders navigate volatile markets and seize rare opportunities. Whether you're backtesting strategies or executing live trades, BlackSwan brings together strategy deployment, data analysis, and performance tracking in one flexible, streamlined system—built for serious crypto traders.
 
 ## 🚀 Features
 
