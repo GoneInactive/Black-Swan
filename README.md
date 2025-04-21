@@ -38,9 +38,16 @@ cd black-swan
 ### 2. Set up your virtual enviroment (Optional)
 *Note: If step is skipped, issues may arise with running kraken_rust_api*
 
+On Windows:
 ```bash
 python -m venv venv
-scoure venv/Scripts/activate 
+source venv/Scripts/activate 
+```
+
+On Mac:
+```bash
+python -m venv venv
+source venv/bin/activate
 ```
 
 ### 3. Install Rust dependencies
