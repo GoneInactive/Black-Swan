@@ -109,6 +109,6 @@ impl KrakenClient {
     // Get the balance (stub for now, will be implemented later)
     pub fn get_balance(&self) -> Result<f64, KrakenError> {
         // Placeholder value until private auth is added
-        Ok(1000.0)
+        Ok(-1.0)
     }
 }
