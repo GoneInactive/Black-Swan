@@ -162,6 +162,11 @@ if __name__ == "__main__":
 Rust handles the Kraken API requests efficiently. When you call functions like `get_bid()` or `get_ask()`, they internally handle API requests, error handling, and response parsing, ensuring high performance.
 
 ---
+
+### Contributing
+Follow https://opensource.guide/
+
+---
 ## Troubleshooting
 Will update as common problems arise.
 
