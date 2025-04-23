@@ -35,8 +35,7 @@ git clone https://github.com/GoneInactive/Black-Swan.git
 cd black-swan
 ```
 
-### 2. Set up your virtual enviroment (Optional)
-*Note: If step is skipped, issues may arise with running kraken_rust_api*
+### 2. Set up your virtual enviroment
 
 On Windows:
 ```bash
@@ -161,6 +160,7 @@ if __name__ == "__main__":
 
 ### Managing Kraken API Requests
 Rust handles the Kraken API requests efficiently. When you call functions like `get_bid()` or `get_ask()`, they internally handle API requests, error handling, and response parsing, ensuring high performance.
+
 ---
 ## Troubleshooting
 Will update as common problems arise.
