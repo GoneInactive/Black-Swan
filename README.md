@@ -1,4 +1,4 @@
-<img src="tradebyte.png" alt="drawing" width="200"> 
+<img src="tradebyte.PNG" alt="drawing" width="700"> 
 
 # TradeByte - A Crypto-Exclusive Quantitative Trading Framework
 
