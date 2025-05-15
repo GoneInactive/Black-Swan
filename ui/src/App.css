@@ -1,0 +1,96 @@
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: 'Lexend', sans-serif;
+  background: white;
+}
+
+.ticker-bar {
+  height: 50px;
+  width: 100%;
+  background-color: #4285f4;
+  color: white;
+  display: flex;
+  align-items: center;
+  padding-left: 20px;
+  font-size: 18px;
+  font-weight: bold;
+  white-space: nowrap;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.ticker-text {
+  display: inline-block;
+  padding-left: 100%;
+  animation: tickerScroll 20s linear infinite;
+}
+
+@keyframes tickerScroll {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-100%); }
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  height: calc(100% - 50px); /* subtract ticker height */
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+.graph-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.graph-container {
+  background: #f9f9f9;
+  border: 1px solid #4285f4;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.terminal-input {
+  height: 50px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-top: 10px;
+  flex-shrink: 0;
+}
+
+.terminal-input input {
+  width: 80%;
+  padding: 8px;
+  font-size: 16px;
+  border: 1px solid #4285f4;
+  outline: none;
+}
+
+
+.logo1 {
+  color: #4285f4;
+  font-family: 'Lexend', sans-serif;
+  font-weight: bold;
+}
+
+.logo2 {
+  color: #333;
+  font-family: 'Lexend', sans-serif;
+  font-weight: bold;
+}
+
+.logo1, .logo2 {
+  display: inline;
+}
