@@ -1,8 +1,8 @@
-<img src="BS_logo.png" alt="drawing" width="200"> 
+<img src="tradebyte.PNG" alt="drawing" width="700"> 
 
-# BlackSwan - A Kraken-Exclusive Crypto Trading Bot
+# TradeByte - A Crypto-Exclusive Quantitative Trading Framework
 
-BlackSwan is a modular crypto trading bot platform built exclusively for Kraken, designed to help traders navigate volatile markets and seize rare opportunities. Whether you're backtesting strategies or executing live trades, BlackSwan brings together strategy deployment, data analysis, and performance tracking in one flexible, streamlined system—built for serious crypto traders.
+TradeByte is a modular crypto trading bot platform built exclusively for Kraken, designed to help traders navigate volatile markets and seize rare opportunities. Whether you're backtesting strategies or executing live trades, TradeByte brings together strategy deployment, data analysis, and performance tracking in one flexible, streamlined system—built for serious crypto traders.
 
 Together, Python and Rust combine to deliver a flexible yet powerful framework that supports both high-level strategy development and low-level system performance.
 
