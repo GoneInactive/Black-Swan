@@ -1,8 +1,8 @@
-<img src="BS_logo.png" alt="drawing" width="200"> 
+<img src="tradebyte.PNG" alt="drawing" width="700"> 
 
-# BlackSwan - A Kraken-Exclusive Crypto Trading Bot
+# TradeByte - A Crypto-Exclusive Quantitative Trading Framework
 
-BlackSwan is a modular crypto trading bot platform built exclusively for Kraken, designed to help traders navigate volatile markets and seize rare opportunities. Whether you're backtesting strategies or executing live trades, BlackSwan brings together strategy deployment, data analysis, and performance tracking in one flexible, streamlined system—built for serious crypto traders.
+TradeByte is a modular crypto trading bot platform built exclusively for Kraken, designed to help traders navigate volatile markets and seize rare opportunities. Whether you're backtesting strategies or executing live trades, TradeByte brings together strategy deployment, data analysis, and performance tracking in one flexible, streamlined system—built for serious crypto traders.
 
 Together, Python and Rust combine to deliver a flexible yet powerful framework that supports both high-level strategy development and low-level system performance.
 
@@ -35,12 +35,18 @@ git clone https://github.com/GoneInactive/Black-Swan.git
 cd black-swan
 ```
 
-### 2. Set up your virtual enviroment (Optional)
-*Note: If step is skipped, issues may arise with running kraken_rust_api*
+### 2. Set up your virtual enviroment
 
+On Windows:
 ```bash
 python -m venv venv
-scoure venv/Scripts/activate 
+source venv/Scripts/activate 
+```
+
+On Mac:
+```bash
+python -m venv venv
+source venv/bin/activate
 ```
 
 ### 3. Install Rust dependencies
@@ -154,6 +160,12 @@ if __name__ == "__main__":
 
 ### Managing Kraken API Requests
 Rust handles the Kraken API requests efficiently. When you call functions like `get_bid()` or `get_ask()`, they internally handle API requests, error handling, and response parsing, ensuring high performance.
+
+---
+
+### Contributing
+Follow https://opensource.guide/
+
 ---
 ## Troubleshooting
 Will update as common problems arise.

@@ -16,6 +16,7 @@ serde_yaml = "0.9"
 hmac = "0.11"
 sha2 = "0.10"
 base64 = "0.13"
+url = "2.5.4"
 
 # Optional dependencies for YAML parsing and async
 # Remove if not necessary
