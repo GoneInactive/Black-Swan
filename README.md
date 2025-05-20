@@ -87,7 +87,7 @@ python tests/test_rust_client.py
 ## Project Structure
 ---
 ```
-Black-Swan/
+TradeByte/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
