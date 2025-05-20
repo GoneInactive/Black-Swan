@@ -9,6 +9,7 @@ fn handle_result(result: Result<f64, KrakenError>) -> PyResult<f64> {
         Ok(value) => Ok(value),
         Err(e) => Err(pyo3::exceptions::PyRuntimeError::new_err(format!("{:?}", e))),
     }
+    
 }
 
 #[pyfunction]

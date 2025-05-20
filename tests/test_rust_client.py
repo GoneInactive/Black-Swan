@@ -1,6 +1,6 @@
 from rust_kraken_client import get_bid, get_ask, get_spread, get_balance
 
-def test_rust_client():
+def test_rust_client():  
     print("Testing Kraken Client:")
     try:
         bid = get_bid()

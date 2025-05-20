@@ -6,6 +6,7 @@ use std::fs;
 use serde_json::Value;
 use std::path::Path;
 
+
 #[derive(Debug)]
 pub enum KrakenError {
     HttpError(Error),
