@@ -1,8 +1,14 @@
 # config/config.example.yaml
 
 kraken:
-  api_key: "YOUR_KRAKEN_API_KEY"
-  api_secret: "YOUR_KRAKEN_API_SECRET"
+  api_key: "<Put your API key here>"
+  api_secret: "<Put your API secret here>"
+  default_pair: "XBTUSD"
+
+binance:
+  api_key: "<Put your API key here>"
+  api_secret: "<Put your API secret here>"
+  default_pair: "XBTUSD"
 
 trade:
   base_asset: "BTC"
