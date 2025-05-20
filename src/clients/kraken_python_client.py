@@ -1,4 +1,3 @@
-# clients/kraken_python_client.py
 from rust_kraken_client import get_bid, get_ask
 
 class KrakenPythonClient:

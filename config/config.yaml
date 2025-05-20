@@ -1,9 +1,14 @@
 # config/config.example.yaml
 
 kraken:
+  api_key: "mXn+WT18e9Swo0st6/Yt1alPcLuu/jVWaBl21qqIZdMGQTpEi2l0rlNz"
+  api_secret: "n15puHpUIsctLTPH9KR7FZjW+DUt7+KfEKIAFTzGpTou4DOBxRPRaPoCudNvQ9il/9zECalUxYiix0PPKUYfnw=="
+  default_pair: "XBTUSD"
+
+binance:
   api_key: "<Put your API key here>"
   api_secret: "<Put your API secret here>"
-  default_pair: "XBTUSD"
+  default_pair: "BTCUSDT"
 
 trade:
   base_asset: "BTC"
@@ -11,7 +16,7 @@ trade:
   interval: "1h"
   order_size: 0.001
   slippage: 0.01
-  paper_trading: true  # Set to false for live trading
+  paper_trading: true  
 
 strategy:
   name: "sma"
