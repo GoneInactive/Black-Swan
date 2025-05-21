@@ -1,0 +1,23 @@
+[
+  {
+    "symbol": "XRP",
+    "quantity": 100.5,
+    "avg_price": 0.53,
+    "market_value": 55.0,
+    "pnl": 1.73
+  },
+  {
+    "symbol": "ADA",
+    "quantity": 170.6,
+    "avg_price": 0.44,
+    "market_value": 78.05,
+    "pnl": 2.99
+  },
+  {
+    "symbol": "ETH",
+    "quantity": 10.03,
+    "avg_price": 3360.69,
+    "market_value": 35337.69,
+    "pnl": 1629.97
+  }
+]

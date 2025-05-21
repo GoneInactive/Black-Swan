@@ -1,0 +1,26 @@
+[
+  {
+    "symbol": "SPX",
+    "price": 5140.96,
+    "change": -9.04,
+    "pct_change": -0.18
+  },
+  {
+    "symbol": "NDX",
+    "price": 17878.09,
+    "change": -121.91,
+    "pct_change": -0.68
+  },
+  {
+    "symbol": "DJI",
+    "price": 40055.31,
+    "change": 55.31,
+    "pct_change": 0.14
+  },
+  {
+    "symbol": "RUT",
+    "price": 2005.96,
+    "change": 5.96,
+    "pct_change": 0.3
+  }
+]

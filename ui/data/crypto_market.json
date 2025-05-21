@@ -1,0 +1,44 @@
+[
+  {
+    "symbol": "BTC",
+    "price": 65909.99,
+    "change": 909.99,
+    "pct_change": 1.4,
+    "volume": "7.9M"
+  },
+  {
+    "symbol": "ETH",
+    "price": 3476.07,
+    "change": -23.93,
+    "pct_change": -0.68,
+    "volume": "48.5M"
+  },
+  {
+    "symbol": "SOL",
+    "price": 123.81,
+    "change": -1.19,
+    "pct_change": -0.95,
+    "volume": "35.3M"
+  },
+  {
+    "symbol": "LTC",
+    "price": 79.61,
+    "change": -0.39,
+    "pct_change": -0.49,
+    "volume": "12.9M"
+  },
+  {
+    "symbol": "XRP",
+    "price": 0.55,
+    "change": 0.0,
+    "pct_change": 0.0,
+    "volume": "275.1M"
+  },
+  {
+    "symbol": "ADA",
+    "price": 0.45,
+    "change": 0.0,
+    "pct_change": 0.0,
+    "volume": "115.2M"
+  }
+]
