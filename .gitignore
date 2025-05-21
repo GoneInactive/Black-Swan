@@ -50,10 +50,10 @@ tests/__pycache__/
 sandbox/
 
 # Output files
-plots/
-*.png
-*.jpg
-*.csv
+# plots/
+# *.png
+# *.jpg
+# *.csv
 
 # Git hook backups
 .git/hooks/*.sample
