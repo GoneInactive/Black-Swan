@@ -5,7 +5,7 @@ import yaml
 def load_settings(param="program.name"):
     #param = sys.argv[1]
     base_dir = os.path.dirname(os.path.abspath(__file__))
-    settings_path = os.path.join(base_dir, '..', '..', 'config', 'settings', 'settings.yaml')
+    settings_path = os.path.join(base_dir, '..', '..', 'resources', 'data', 'settings', 'settings.yaml')
 
     with open(settings_path, 'r') as f:
         settings = yaml.safe_load(f)
