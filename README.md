@@ -40,7 +40,12 @@ cd black-swan
 On Windows:
 ```bash
 python -m venv venv
-source venv/Scripts/activate 
+python -m source venv/Scripts/activate 
+```
+OR
+```
+python -m venv venv
+venv\Scripts\activate.bat
 ```
 
 On Mac:
