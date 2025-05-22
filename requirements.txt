@@ -2,3 +2,6 @@ streamlit
 plotly
 streamlit-autorefresh
 pandas
+pyyaml
+rich
+pyfiglet
