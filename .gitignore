@@ -58,3 +58,4 @@ sandbox/
 # Git hook backups
 .git/hooks/*.sample
 /config
+*.yaml
