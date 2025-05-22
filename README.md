@@ -1,4 +1,4 @@
-<img src="assets/images/tradebyte.PNG" alt="drawing" width="700"> 
+<img src="resources/images/tradebyte.PNG" alt="drawing" width="700"> 
 
 # TradeByte - A Crypto-Exclusive Quantitative Trading Framework
 
@@ -40,7 +40,13 @@ cd black-swan
 On Windows:
 ```bash
 python -m venv venv
-source venv/Scripts/activate 
+python -m source venv/Scripts/activate 
+```
+OR
+```
+python -m venv venv
+venv\Scripts\activate.bat
+set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1     # Do this if error during matruin develop
 ```
 
 On Mac:
