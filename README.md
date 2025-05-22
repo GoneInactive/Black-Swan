@@ -22,6 +22,15 @@ Black Swan is designed to be lightweight and adaptable—ideal for developers, q
 - **Logging & Performance Analytics** – Track trades, performance, and KPIs over time.
 - **Secure Config Management** – Store keys and strategy parameters safely via config files.
 
+## Exchanges Supported
+
+| Exchange              | Support Status       | Notes               |
+|-----------------------|----------------------|---------------------|
+| Kraken                | Fully supported      | —                   |
+| Binance US            | Fully supported      | —                   |
+| Binance International | Support coming soon  | Not yet available   |
+| Hyperliquid           | Support coming soon  | Not yet available   |
+
 ---
 ## Getting Started & Installation 
 ### Prerequisites
