@@ -57,3 +57,4 @@ plots/
 
 # Git hook backups
 .git/hooks/*.sample
+/config
