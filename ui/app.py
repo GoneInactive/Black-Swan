@@ -106,6 +106,7 @@ def load_news_data():
 
 BLOOMBERG_BG = '#0f0f0f'  # Dark background
 BLOOMBERG_TEXT = '#ff8c00'  # Bloomberg orange/amber
+#BLOOMBERG_TEXT = '#4285f4'
 BLOOMBERG_HIGHLIGHT = '#ffcc00'  # Brighter highlight
 BLOOMBERG_BORDER = '#333333'  # Dark borders
 BLOOMBERG_POSITIVE = '#00ff00'  # Green for positive
