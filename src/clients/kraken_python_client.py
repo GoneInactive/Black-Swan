@@ -1,8 +1,18 @@
-from rust_kraken_client import get_bid, get_ask
+from rust_kraken_client import rust_kraken_client as kraken
 
 class KrakenPythonClient:
-    def get_bid(self):
-        return get_bid()
+    def get_bid(self,asset):
+        return kraken.get_bid(asset)
     
-    def get_ask(self):
-        return get_ask()
+    def get_ask(self,asset):
+        return kraken.get_ask(asset)
+    
+    def get_balance(self,asset="*")
+        if asset == "*":
+            return kraken.get_balance()
+        else:
+            return kraken.get_balance(asset)
+        
+    def get_spread(self,asset):
+        return kraken.get_spread(asset)
+        
