@@ -38,4 +38,7 @@ class KrakenPythonClient:
     
     def add_order(self,asset,side,price,volume):
         order_response = kraken.add_order(asset, side, price, volume)
+
+    def get_orders(self):
+        pass
         
