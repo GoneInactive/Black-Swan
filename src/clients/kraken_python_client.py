@@ -18,12 +18,12 @@ class KrakenPythonClient:
         """
         return kraken.get_ask(asset)
     
-    def get_balance(self,asset="*"):
+    def get_balance(self,asset=None):
         """
         Get the balance of an asset.
-        If asset is "*", returns all balances.
+        If asset is None, returns all balances.
         """
-        if asset == "*":
+        if asset == None:
             # Returns all balances
             return kraken.get_balance()
         else:
@@ -41,5 +41,11 @@ class KrakenPythonClient:
         return order_response
 
     def get_orders(self):
+        pass
+
+    def get_order_id(self):
+        pass
+
+    def cancel_order(self,order_id):
         pass
         
