@@ -9,7 +9,7 @@ def main():
     kraken = KrakenPythonClient()
     
     fails = 0 
-    cases = 6
+    cases = 7
 
     print('='*60)
     print('Testing get_bid')
@@ -72,6 +72,17 @@ def main():
     print('='*60)
     print('')
     
+    print('='*60)
+    print('Testing get_open_orders')
+    try:
+        orders = kraken.get_open_orders()
+        print(orders)
+    except Exception as e:
+        print(f"!ERROR! {e}")
+        fails+=1
+    print('='*60)
+    print('')
+    
 
     print(' ')
     print('='*60)
@@ -79,6 +90,8 @@ def main():
     print(f'Cases Passed: {cases-fails}')
     print(f'Cases Failed: {fails}')
     print('='*60)
+
+    
 
 if __name__ == "__main__":
     main()

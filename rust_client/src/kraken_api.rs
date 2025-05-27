@@ -33,6 +33,84 @@ pub struct OrderResponse {
     pub description: String,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct OrderDescription {
+    pub pair: String,
+    #[serde(rename = "type")]
+    pub order_type: String,
+    pub ordertype: String,
+    pub price: String,
+    pub price2: String,
+    pub leverage: String,
+    pub order: String,
+    pub close: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct OpenOrder {
+    pub refid: Option<String>,
+    pub userref: Option<String>,
+    pub status: String,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub opentm: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub starttm: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub expiretm: f64,
+    pub descr: OrderDescription,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub vol: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub vol_exec: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub cost: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub fee: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub price: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub stopprice: f64,
+    #[serde(deserialize_with = "deserialize_f64")]
+    pub limitprice: f64,
+    pub misc: String,
+    pub oflags: String,
+    pub reason: Option<String>,
+}
+
+fn deserialize_f64<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrFloat {
+        String(String),
+        Float(f64),
+    }
+
+    match StringOrFloat::deserialize(deserializer)? {
+        StringOrFloat::String(s) => s.parse().map_err(serde::de::Error::custom),
+        StringOrFloat::Float(f) => Ok(f),
+    }
+}
+
+fn deserialize_number_from_string<'de, D>(deserializer: D) -> Result<f64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum StringOrFloat {
+        String(String),
+        Float(f64),
+    }
+
+    match StringOrFloat::deserialize(deserializer)? {
+        StringOrFloat::String(s) => s.parse().map_err(serde::de::Error::custom),
+        StringOrFloat::Float(f) => Ok(f),
+    }
+}
+
 pub struct KrakenClient {
     client: Client,
     pair: String,
@@ -52,6 +130,31 @@ impl KrakenClient {
             api_key: config.kraken.api_key,
             api_secret: config.kraken.api_secret,
         }
+    }
+
+    pub fn get_open_orders_raw(&self) -> Result<String, KrakenError> {
+        let nonce = self.generate_nonce();
+        let body = format!("nonce={}", nonce);
+
+        let path = "/0/private/OpenOrders";
+        let url = format!("https://api.kraken.com{}", path);
+
+        let message = self.create_signature_message(path, &nonce, &body);
+        let signature = self.sign_message(&message)?;
+
+        let response = self.client
+            .post(&url)
+            .header("API-Key", &self.api_key)
+            .header("API-Sign", signature)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .map_err(KrakenError::HttpError)?;
+
+        let json_text = response.text()
+            .map_err(|e| KrakenError::ParseError(e.to_string()))?;
+
+        Ok(json_text)
     }
 
     fn get_ticker(&self, pair: &str) -> Result<HashMap<String, serde_json::Value>, KrakenError> {
