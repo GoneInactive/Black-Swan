@@ -3,20 +3,20 @@ from rust_kraken_client import rust_kraken_client as kraken
 This client is used to interact with the kraken API built in rust.
 """
 class KrakenPythonClient:
-    def __init__(self,asset=None):
+    def __init__(self,asset='XBTUSD'):
         self.asset = asset
 
-    def get_bid(self,asset=None):
+    def get_bid(self,asset='XBTUSD'):
         """
         Get the bid price of an asset.
         """
-        return kraken.get_bid()
+        return kraken.get_bid(asset)
     
-    def get_ask(self,asset=None):
+    def get_ask(self,asset='XBTUSD'):
         """
         Get the ask price of an asset.
         """
-        return kraken.get_ask()
+        return kraken.get_ask(asset)
     
     def get_balance(self,asset="*"):
         """
@@ -30,11 +30,11 @@ class KrakenPythonClient:
             # Returns specific balance
             return kraken.get_balance()[asset]
         
-    def get_spread(self,asset=None):
+    def get_spread(self,asset='XBTUSD'):
         """
         Get the spread of an asset.
         """
-        return kraken.get_spread()
+        return kraken.get_spread(asset)
     
     def add_order(self,asset,side,price,volume):
         order_response = kraken.add_order(asset, side, price, volume)

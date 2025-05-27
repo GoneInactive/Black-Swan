@@ -1,10 +1,8 @@
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
-
 mod kraken_api;
 use kraken_api::{KrakenClient, KrakenError, OrderResponse};
-
 mod binance_api;
 use binance_api::BinanceClient;
 
@@ -39,7 +37,7 @@ impl PyOrderResponse {
     fn __str__(&self) -> String {
         format!("Order(txid={:?}, description='{}')", self.txid, self.description)
     }
-    
+   
     fn __repr__(&self) -> String {
         self.__str__()
     }
@@ -55,21 +53,21 @@ impl From<OrderResponse> for PyOrderResponse {
 }
 
 #[pyfunction]
-fn get_bid() -> PyResult<f64> {
+fn get_bid(pair: String) -> PyResult<f64> {
     let client = KrakenClient::new();
-    handle_kraken_result(client.get_bid())
+    handle_kraken_result(client.get_bid(&pair))
 }
 
 #[pyfunction]
-fn get_ask() -> PyResult<f64> {
+fn get_ask(pair: String) -> PyResult<f64> {
     let client = KrakenClient::new();
-    handle_kraken_result(client.get_ask())
+    handle_kraken_result(client.get_ask(&pair))
 }
 
 #[pyfunction]
-fn get_spread() -> PyResult<f64> {
+fn get_spread(pair: String) -> PyResult<f64> {
     let client = KrakenClient::new();
-    handle_kraken_result(client.get_spread())
+    handle_kraken_result(client.get_spread(&pair))
 }
 
 #[pyfunction]

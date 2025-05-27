@@ -54,10 +54,10 @@ impl KrakenClient {
         }
     }
 
-    fn get_ticker(&self) -> Result<HashMap<String, serde_json::Value>, KrakenError> {
+    fn get_ticker(&self, pair: &str) -> Result<HashMap<String, serde_json::Value>, KrakenError> {
         let url = format!(
             "https://api.kraken.com/0/public/Ticker?pair={}",
-            self.pair
+            pair
         );
 
         let response = self
@@ -81,8 +81,8 @@ impl KrakenClient {
         }
     }
 
-    pub fn get_bid(&self) -> Result<f64, KrakenError> {
-        let data = self.get_ticker()?;
+    pub fn get_bid(&self, pair: &str) -> Result<f64, KrakenError> {
+        let data = self.get_ticker(pair)?;
         let pair_data = data.values().next().ok_or_else(|| KrakenError::ParseError("Missing pair data".to_string()))?;
         
         let bid = pair_data["b"][0]
@@ -92,8 +92,8 @@ impl KrakenClient {
         Ok(bid.parse().unwrap_or(0.0))
     }
 
-    pub fn get_ask(&self) -> Result<f64, KrakenError> {
-        let data = self.get_ticker()?;
+    pub fn get_ask(&self, pair: &str) -> Result<f64, KrakenError> {
+        let data = self.get_ticker(pair)?;
         let pair_data = data.values().next().ok_or_else(|| KrakenError::ParseError("Missing pair data".to_string()))?;
         
         let ask = pair_data["a"][0]
@@ -103,9 +103,9 @@ impl KrakenClient {
         Ok(ask.parse().unwrap_or(0.0))
     }
 
-    pub fn get_spread(&self) -> Result<f64, KrakenError> {
-        let bid = self.get_bid()?;
-        let ask = self.get_ask()?;
+    pub fn get_spread(&self, pair: &str) -> Result<f64, KrakenError> {
+        let bid = self.get_bid(pair)?;
+        let ask = self.get_ask(pair)?;
         Ok(ask - bid)
     }
 
