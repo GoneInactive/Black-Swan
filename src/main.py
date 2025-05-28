@@ -5,6 +5,8 @@ from rich.panel import Panel
 import sys
 from pyfiglet import Figlet
 
+from handler.CommandHandler import CommandHandler as handler
+
 console = Console()
 
 fig = Figlet()
@@ -41,6 +43,12 @@ def main():
     console.print(f"🌌 Running cosmic edition [bold purple]v{settings['version']}[/bold purple]\n", justify="left")
     
     console.rule("[bold green]SYSTEM ONLINE[/bold green]", style="bold green")
+
+    handle = handler()
+
+    while True:
+        print('')
+        handle.handle(input('TradeByte > '))
 
 if __name__ == "__main__":
     main()
