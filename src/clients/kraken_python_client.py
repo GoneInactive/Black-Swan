@@ -103,10 +103,12 @@ class KrakenPythonClient:
             valid_headers = [h for h in headers if h in df.columns]
             return df[valid_headers]
 
+    
+
 
     def get_order_id(self):
         pass
 
     def cancel_order(self,order_id):
-        pass
+        return kraken.cancel_order(order_id)
         

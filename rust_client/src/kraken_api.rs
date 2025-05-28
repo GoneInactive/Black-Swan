@@ -157,6 +157,47 @@ impl KrakenClient {
         Ok(json_text)
     }
 
+   pub fn cancel_order(&self, txid: &str) -> Result<bool, KrakenError> {
+        let nonce = self.generate_nonce();
+        let body = format!("nonce={}&txid={}", nonce, txid);
+
+        let path = "/0/private/CancelOrder";
+        let url = format!("https://api.kraken.com{}", path);
+
+        let message = self.create_signature_message(path, &nonce, &body);
+        let signature = self.sign_message(&message)?;
+
+        let response = self.client
+            .post(&url)
+            .header("API-Key", &self.api_key)
+            .header("API-Sign", signature)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .map_err(KrakenError::HttpError)?;
+
+        let json: serde_json::Value = response.json()
+            .map_err(|e| KrakenError::ParseError(e.to_string()))?;
+
+        // Check for API errors
+        if let Some(errors) = json.get("error").and_then(serde_json::Value::as_array) {
+            if !errors.is_empty() {
+                return Err(KrakenError::ParseError(
+                    format!("Kraken API error: {:?}", errors)
+                ));
+            }
+        }
+
+        let result = json.get("result")
+            .ok_or_else(|| KrakenError::MissingField("result".to_string()))?;
+
+        let count = result.get("count")
+            .and_then(|c| c.as_u64())
+            .ok_or_else(|| KrakenError::ParseError("Missing count field".to_string()))?;
+
+        Ok(count > 0)
+    }
+
     fn get_ticker(&self, pair: &str) -> Result<HashMap<String, serde_json::Value>, KrakenError> {
         let url = format!(
             "https://api.kraken.com/0/public/Ticker?pair={}",
