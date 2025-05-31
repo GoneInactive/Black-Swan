@@ -11,17 +11,17 @@ class KrakenPythonClient:
     def __init__(self,asset='XBTUSD'):
         self.asset = asset
 
-    def get_bid(self,asset='XBTUSD'):
+    def get_bid(self,asset='XBTUSD',index=0):
         """
         Get the bid price of an asset.
         """
-        return kraken.get_bid(asset)
+        return kraken.get_bid(asset)[index]
     
-    def get_ask(self,asset='XBTUSD'):
+    def get_ask(self,asset='XBTUSD',index=0):
         """
         Get the ask price of an asset.
         """
-        return kraken.get_ask(asset)
+        return kraken.get_ask(asset)[index]
     
     def get_balance(self,asset=None):
         """
