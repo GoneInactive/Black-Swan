@@ -1,0 +1,5 @@
+Command     | Arguments                               | Description  
+------------|-----------------------------------------|-------------------------------------------------------------  
+start       | str: strategy, str: exchange, str: args | Launch a strategy from the src/apps/strategies directory  
+exit, quit  | None                                    | Exit TradeByte  
+help        | int: page                               | Show help page (supports pagination)  

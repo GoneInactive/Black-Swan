@@ -131,6 +131,12 @@ fn get_open_orders_raw() -> PyResult<String> {
 }
 
 #[pyfunction]
+fn cancel_order(txid: String) -> PyResult<bool> {
+    let client = KrakenClient::new();
+    handle_kraken_result(client.cancel_order(&txid))
+}
+
+#[pyfunction]
 fn get_bid(pair: String) -> PyResult<f64> {
     let client = KrakenClient::new();
     handle_kraken_result(client.get_bid(&pair))
@@ -192,5 +198,6 @@ fn rust_kraken_client(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // m.add_class::<PyOrderResponse>()?;
     // m.add_class::<PyOpenOrder>()?;
     m.add_function(wrap_pyfunction!(get_open_orders_raw, m)?)?;
+    m.add_function(wrap_pyfunction!(cancel_order, m)?)?;
     Ok(())
 }
