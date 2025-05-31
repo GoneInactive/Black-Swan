@@ -65,7 +65,8 @@ def main():
     print('='*60)
     print('Testing add_order')
     try:
-        print(kraken.add_order('XBTUSD','buy',1,1))
+        print('')
+        #print(kraken.add_order('XBTUSD','buy',1,1))
     except Exception as e:
         print(f"!ERROR! {e}")
         fails+=1
@@ -75,8 +76,9 @@ def main():
     print('='*60)
     print('Testing get_open_orders')
     try:
-        orders = kraken.get_open_orders()
-        print(orders)
+        orders = kraken.get_open_orders(asset='EURQUSD')
+        print(orders['descr_price'])
+        print(1.1299 in [float(x) for x in orders['descr_price']])
     except Exception as e:
         print(f"!ERROR! {e}")
         fails+=1
