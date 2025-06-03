@@ -93,17 +93,6 @@ pub struct PyOpenOrder {
     pub reason: Option<String>,
 }
 
-// #[pymethods]
-// impl PyOpenOrder {
-//     fn __str__(&self) -> String {
-//         format!("OpenOrder(refid={:?}, status='{}', vol='{}')", self.refid, self.status, self.vol)
-//     }
-   
-//     fn __repr__(&self) -> String {
-//         self.__str__()
-//     }
-// }
-
 #[pymethods]
 impl PyOrderResponse {
     fn __str__(&self) -> String {
@@ -168,14 +157,6 @@ fn add_order(pair: String, side: String, price: f64, volume: f64) -> PyResult<Py
     Ok(PyOrderResponse::from(order_response))
 }
 
-// #[pyfunction]
-// fn get_open_orders() -> PyResult<HashMap<String, PyOpenOrder>> {
-//     let client = KrakenClient::new();
-//     let orders = handle_kraken_result(client.get_open_orders())?;
-//     Ok(orders.into_iter()
-//         .map(|(txid, order)| (txid, PyOpenOrder::from(order)))
-//         .collect())
-// }
 
 #[pyfunction]
 fn get_binance_depth() -> PyResult<String> {
@@ -193,10 +174,7 @@ fn rust_kraken_client(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_spread, m)?)?;
     m.add_function(wrap_pyfunction!(get_balance, m)?)?;
     m.add_function(wrap_pyfunction!(add_order, m)?)?;
-    // m.add_function(wrap_pyfunction!(get_open_orders, m)?)?;
     m.add_function(wrap_pyfunction!(get_binance_depth, m)?)?;
-    // m.add_class::<PyOrderResponse>()?;
-    // m.add_class::<PyOpenOrder>()?;
     m.add_function(wrap_pyfunction!(get_open_orders_raw, m)?)?;
     m.add_function(wrap_pyfunction!(cancel_order, m)?)?;
     Ok(())
