@@ -58,4 +58,4 @@ sandbox/
 # Git hook backups
 .git/hooks/*.sample
 /config
-src/apps/strategies/eurq_mm.py
+src/apps/strategies/*
