@@ -1,0 +1,26 @@
+[
+  {
+    "symbol": "Gold",
+    "price": 2114.67,
+    "change": 14.67,
+    "pct_change": 0.7
+  },
+  {
+    "symbol": "Silver",
+    "price": 30.99,
+    "change": -0.01,
+    "pct_change": -0.03
+  },
+  {
+    "symbol": "Oil",
+    "price": 75.67,
+    "change": 0.67,
+    "pct_change": 0.89
+  },
+  {
+    "symbol": "NatGas",
+    "price": 2.32,
+    "change": 0.02,
+    "pct_change": 0.87
+  }
+]

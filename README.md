@@ -1,4 +1,4 @@
-<img src="tradebyte.PNG" alt="drawing" width="700"> 
+<img src="docs/images/tradebyte.PNG" alt="drawing" width="700"> 
 
 # TradeByte - A Crypto-Exclusive Quantitative Trading Framework
 
@@ -22,6 +22,15 @@ Black Swan is designed to be lightweight and adaptable—ideal for developers, q
 - **Logging & Performance Analytics** – Track trades, performance, and KPIs over time.
 - **Secure Config Management** – Store keys and strategy parameters safely via config files.
 
+## Exchanges Supported
+
+| Exchange              | Support Status       | Notes               |
+|-----------------------|----------------------|---------------------|
+| Kraken                | Fully supported      | —                   |
+| Binance US            | Fully supported      | —                   |
+| Binance International | Support coming soon  | Not yet available   |
+| Hyperliquid           | Support coming soon  | Not yet available   |
+
 ---
 ## Getting Started & Installation 
 ### Prerequisites
@@ -40,7 +49,13 @@ cd black-swan
 On Windows:
 ```bash
 python -m venv venv
-source venv/Scripts/activate 
+python -m source venv/Scripts/activate 
+```
+OR
+```
+python -m venv venv
+venv\Scripts\activate.bat
+set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1     # Do this if error during matruin develop
 ```
 
 On Mac:
@@ -87,7 +102,7 @@ python tests/test_rust_client.py
 ## Project Structure
 ---
 ```
-Black-Swan/
+TradeByte/
 ├── README.md
 ├── LICENSE
 ├── .gitignore

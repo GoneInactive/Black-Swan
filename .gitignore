@@ -5,53 +5,57 @@ __pycache__/
 *.pyd
 *.so
 
-# Jupyter and IPython
+# Jupyter
 .ipynb_checkpoints/
+*.ipynb
 
-# Environment + dependencies
-env/
+# Virtual environments
+venv*/
 venv/
+env/
 *.env
 .env
 .env.*
 
-# macOS / Linux / Windows
+# OS files
 .DS_Store
 Thumbs.db
 
-# Logs / dumps / runtime files
+# Logs and runtime files
 *.log
 *.pid
 *.sqlite3
 *.db
 
 # Config and credentials
+config.yaml
 config/config.yaml
+config-old.yaml
 config/secrets.yaml
 *.key
 *.pem
 
-# VSCode + IDEs
+# IDE settings
 .vscode/
 .idea/
 
-# DearPyGUI UI state (if saved)
+# DearPyGUI
 *.ini
 
 # Test artifacts
-tests/__pycache__/
 *.pytest_cache/
+tests/__pycache__/
 
-# Personal notebooks / scratch files
+# Scratch
 sandbox/
-*.ipynb
 
-# Plot images or output files
-plots/
-*.png
-*.jpg
-*.csv
+# Output files
+# plots/
+# *.png
+# *.jpg
+# *.csv
 
-# Git hooks backup files (optional)
+# Git hook backups
 .git/hooks/*.sample
-config/config.yaml
+/config
+src/apps/strategies/eurq_mm.py

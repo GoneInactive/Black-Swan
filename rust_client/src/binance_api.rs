@@ -1,79 +1,56 @@
-use reqwest::blocking::Client;
-use reqwest::Error;
-use serde::Deserialize;
-use std::collections::HashMap;
+use binance::api::*;
+use binance::market::*;
+use serde::{Deserialize};
 use std::fs;
-use serde_json::Value;
-use std::path::Path;
 
-// Error type for handling Binance API-related issues
-#[derive(Debug)]
-pub enum BinanceError {
-    HttpError(Error),             // HTTP-level error
-    ParseError(String),           // JSON parsing error
-    MissingField(String),         // Missing expected data field
+#[derive(Debug, Deserialize)]
+struct BinanceConfig {
+    api_key: String,
+    api_secret: String,
+    default_pair: String,
 }
 
-// Struct to load only the 'binance' section from the full config file
 #[derive(Debug, Deserialize)]
-struct FullConfig {
+struct Config {
     binance: BinanceConfig,
 }
 
-// Binance config details from YAML
-#[derive(Debug, Deserialize)]
-struct BinanceConfig {
-    api_key: String,              // Binance API key (currently unused)
-    api_secret: String,          // Binance API secret (currently unused)
-    default_symbol: String,      // Default trading symbol, e.g. "BTCUSDT"
+pub struct BinanceClient {
+    market: Market,
+    default_pair: String,
 }
 
-// BinanceClient handles HTTP requests and symbol targeting
-pub struct BinanceClient {
-    client: Client,
-    symbol: String,
+#[derive(Debug)]
+pub enum BinanceError {
+    ConfigError(String),
+    ApiError(binance::errors::Error),
+}
+
+impl From<binance::errors::Error> for BinanceError {
+    fn from(e: binance::errors::Error) -> Self {
+        BinanceError::ApiError(e)
+    }
 }
 
 impl BinanceClient {
-    // Constructor to initialize BinanceClient using config/config.yaml
-    pub fn new() -> Self {
-        let config_path = Path::new("config/config.yaml");
-        let config_text = fs::read_to_string(config_path).expect("Failed to read config.yaml");
-        let config: FullConfig = serde_yaml::from_str(&config_text).expect("Invalid YAML");
+    pub fn new() -> Result<Self, BinanceError> {
+        let config_str = fs::read_to_string("config/config.yaml")
+            .map_err(|e| BinanceError::ConfigError(format!("Failed to read config: {}", e)))?;
+        let config: Config = serde_yaml::from_str(&config_str)
+            .map_err(|e| BinanceError::ConfigError(format!("Failed to parse YAML: {}", e)))?;
 
-        Self {
-            client: Client::new(),
-            symbol: config.binance.default_symbol,
-        }
-    }
-
-    // Get 24-hour ticker stats from Binance US public API
-    pub fn get_ticker(&self) -> Result<HashMap<String, Value>, BinanceError> {
-        let url = format!(
-            "https://api.binance.us/api/v3/ticker/24hr?symbol={}",
-            self.symbol
+        let market = Binance::new(
+            Some(config.binance.api_key),
+            Some(config.binance.api_secret),
         );
 
-        let response = self
-            .client
-            .get(&url)
-            .send()
-            .map_err(BinanceError::HttpError)?;
-
-        let json: Value = response.json().map_err(|e| {
-            BinanceError::ParseError(format!("Failed to parse JSON: {}", e.to_string()))
-        })?;
-
-        if json.is_object() {
-            let mut result_map = HashMap::new();
-            if let Some(map) = json.as_object() {
-                for (key, value) in map {
-                    result_map.insert(key.clone(), value.clone());
-                }
-            }
-            Ok(result_map)
-        } else {
-            Err(BinanceError::ParseError("Unexpected JSON format".into()))
-        }
+        Ok(BinanceClient {
+            market,
+            default_pair: config.binance.default_pair,
+        })
     }
+
+    pub fn get_depth(&self) -> Result<String, BinanceError> {
+        Ok(r#"{"bids": [], "asks": []}"#.to_string())
+    }       
 }

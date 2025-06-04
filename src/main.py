@@ -1,51 +1,54 @@
-# src/main.py
+from utils.settings_loader import load_settings
+from rich.console import Console
+from rich import box
+from rich.panel import Panel
+import sys
+from pyfiglet import Figlet
 
-import yaml
-import pandas as pd
-from strategies.sma import SMAStrategy
+from handler.CommandHandler import CommandHandler as handler
 
-def load_config(path='config/config.yaml'):
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
+console = Console()
 
-def get_historical_data(symbol='BTC/USD', interval='1h', start=None, end=None):
-    # Stub: replace with Kraken API call or data loader
-    df = pd.read_csv('data/BTCUSD_1h.csv')  # Example file
-    df['timestamp'] = pd.to_datetime(df['timestamp'])
-    return df
+fig = Figlet()
+BANNER = fig.renderText('Trade Byte')
 
-def run_backtest(strategy, df, starting_balance=10000, order_size=0.001):
-    df = strategy.generate_signals(df)
-    balance = starting_balance
-    position = 0
-    for _, row in df.iterrows():
-        if row['signal'] == 1 and balance >= row['close'] * order_size:
-            position += order_size
-            balance -= row['close'] * order_size
-        elif row['signal'] == -1 and position >= order_size:
-            position -= order_size
-            balance += row['close'] * order_size
-    value = balance + position * df['close'].iloc[-1]
-    print(f"Final portfolio value: ${value:.2f}")
+def show_banner():
+    console.print(
+        Panel.fit(
+            BANNER,
+            title="LAUNCH SYSTEM",
+            border_style="magenta",
+            padding=(1, 2)
+        )
+    )
+
 
 def main():
-    config = load_config()
+    for _ in range(300):
+        print(' ')
+    show_banner()
+    
+    try:
+        settings = load_settings('program.*')
+    except FileNotFoundError:
+        console.print("[bold red]✘ ERROR[/bold red]: No configuration files found!", style="bold red", justify="left")
+        sys.exit(1)
+    
+    if not all(key in settings for key in ("name", "version")):
+        console.print("[bold yellow]⚠ WARNING[/bold yellow]: Incomplete configuration - missing name or version", style="bold yellow")
+        sys.exit(2)
 
-    if config['strategy']['name'] == 'sma':
-        strat = SMAStrategy(
-            short_window=config['strategy']['parameters']['short_window'],
-            long_window=config['strategy']['parameters']['long_window']
-        )
-    else:
-        raise ValueError("Unknown strategy")
+    console.print(f"Console Mode.", justify="left")
+    console.print(f"⚡ Initializing [bold cyan]{settings['name']}[/bold cyan]", justify="left")
+    console.print(f"🌌 Running cosmic edition [bold purple]v{settings['version']}[/bold purple]\n", justify="left")
+    
+    console.rule("[bold green]SYSTEM ONLINE[/bold green]", style="bold green")
 
-    df = get_historical_data()
-    run_backtest(
-        strat,
-        df,
-        starting_balance=config['backtest']['initial_balance'],
-        order_size=config['trade']['order_size']
-    )
+    handle = handler()
+
+    while True:
+        print('')
+        handle.handle(input('TradeByte > '))
 
 if __name__ == "__main__":
     main()

@@ -1,6 +1,7 @@
 # Type: feat, fix, refactor, docs, chore, style, etc.
 # Keep the title under 50 characters.
 # Use an imperative tone (e.g., "Add", "Fix", "Update").
+# Standard commit template
 
 <type>: <short summary>
 
