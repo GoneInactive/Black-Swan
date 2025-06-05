@@ -5,6 +5,9 @@ __pycache__/
 *.pyd
 *.so
 
+# Jupyter
+*.ipynb
+
 # Virtual environments
 venv*/
 venv/
