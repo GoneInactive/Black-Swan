@@ -44,9 +44,12 @@ class KrakenPythonClient:
                 return kraken.get_balance()
             else:
                 # Returns specific balance
+                if kraken.get_balance()[asset] == None:
+                    return 0
                 return kraken.get_balance()[asset]
         except Exception as e:
             print(f"KrakenPythonClient.get_balance: {e}")
+            return 0
 
     def get_spread(self,asset='XBTUSD'):
         """
@@ -142,4 +145,3 @@ class KrakenPythonClient:
             return kraken.cancel_order(order_id)
         except Exception as e:
             print(f"KrakenPythonClient.cancel_order: {e}")
-        
