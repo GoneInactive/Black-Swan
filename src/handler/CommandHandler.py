@@ -3,9 +3,12 @@ import os
 
 from handler.components.start_strategy import StartStrategy
 
+
 import subprocess
 import sys
 import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../apps/data-collector")))
+from kraken_data import KrakenOrderBookCollector
 
 class CommandHandler:
     def __init__(self):
@@ -76,6 +79,16 @@ class CommandHandler:
 
         elif "restart" in cmd:
             self.restart()
+
+        elif "save" in cmd:
+            config_path = os.path.normpath(os.path.join(os.path.dirname(__file__), "..", "..", "config", "config.yaml"))
+            bucket_name = "tradebyte-kraken-data"
+
+            collector = KrakenOrderBookCollector(
+                config_path=config_path,
+                bucket_name=bucket_name
+            )
+            collector.collect_continuous()
         else:
-            print('Invalid command')
+            print(f'Invalid command: {cmd}')
             

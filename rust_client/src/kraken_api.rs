@@ -247,6 +247,70 @@ impl KrakenClient {
         Ok(ask.parse().unwrap_or(0.0))
     }
 
+    fn get_order_book(&self, pair: &str) -> Result<HashMap<String, serde_json::Value>, KrakenError> {
+        let url = format!(
+            "https://api.kraken.com/0/public/Depth?pair={}",
+            pair
+        );
+
+        let response = self
+            .client
+            .get(&url)
+            .send()
+            .map_err(KrakenError::HttpError)?;
+
+        let json: serde_json::Value = response.json().map_err(|e| {
+            KrakenError::ParseError(format!("Failed to parse JSON: {}", e.to_string()))
+        })?;
+
+        if let Some(result) = json["result"].as_object() {
+            let mut result_map = HashMap::new();
+            for (key, value) in result.iter() {
+                result_map.insert(key.clone(), value.clone());
+            }
+            Ok(result_map)
+        } else {
+            Err(KrakenError::ParseError("Missing result field".into()))
+        }
+    }
+
+    pub fn get_orderbook(&self, pair: &str) -> Result<(Vec<f64>, Vec<f64>), KrakenError> {
+        let data = self.get_order_book(pair)?; // This must call the actual order book endpoint, not ticker
+        let pair_data = data.get(pair).ok_or_else(|| KrakenError::ParseError("Missing pair data".to_string()))?;
+    
+        let asks = pair_data["asks"]
+            .as_array()
+            .ok_or_else(|| KrakenError::ParseError("Missing asks".into()))?
+            .iter()
+            .take(10)
+            .map(|entry| {
+                entry[0].as_str()
+                    .ok_or_else(|| KrakenError::ParseError("Invalid ask entry".into()))?
+                    .parse::<f64>()
+                    .map_err(|_| KrakenError::ParseError("Failed to parse ask price".into()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+    
+        let bids = pair_data["bids"]
+            .as_array()
+            .ok_or_else(|| KrakenError::ParseError("Missing bids".into()))?
+            .iter()
+            .take(10)
+            .map(|entry| {
+                entry[0].as_str()
+                    .ok_or_else(|| KrakenError::ParseError("Invalid bid entry".into()))?
+                    .parse::<f64>()
+                    .map_err(|_| KrakenError::ParseError("Failed to parse bid price".into()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+    
+        Ok((bids, asks))
+    }
+    
+
+    
+
+
     pub fn get_spread(&self, pair: &str) -> Result<f64, KrakenError> {
         let bid = self.get_bid(pair)?;
         let ask = self.get_ask(pair)?;
