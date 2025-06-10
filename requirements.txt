@@ -6,3 +6,10 @@ pyyaml
 rich
 pyfiglet
 pandas
+boto3
+PyQt6
+PyQt6-Charts
+krakenex
+websocket-client
+requests
+python-dateutil

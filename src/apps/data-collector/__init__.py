@@ -1,2 +1,6 @@
+import sys
+import os
+
 def __init__():
-    #from rust_kraken_client import get_bid, get_ask, get_spread, get_balance
+    sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..", "clients")))
+    from kraken_python_client import KrakenPythonClient
