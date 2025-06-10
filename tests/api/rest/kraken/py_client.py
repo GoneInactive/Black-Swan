@@ -1,7 +1,7 @@
 import sys
 import os
 # sys.path.append('../../../src/clients')
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../..", "src", "clients")))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../..", "src", "clients")))
 
 from kraken_python_client import KrakenPythonClient
 
@@ -77,8 +77,7 @@ def main():
     print('Testing get_open_orders')
     try:
         orders = kraken.get_open_orders(asset='EURQUSD')
-        print(orders['descr_price'])
-        print(1.1299 in [float(x) for x in orders['descr_price']])
+        print(orders)
     except Exception as e:
         print(f"!ERROR! {e}")
         fails+=1

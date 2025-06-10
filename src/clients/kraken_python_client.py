@@ -44,12 +44,9 @@ class KrakenPythonClient:
                 return kraken.get_balance()
             else:
                 # Returns specific balance
-                if kraken.get_balance()[asset] == None:
-                    return 0
                 return kraken.get_balance()[asset]
         except Exception as e:
             print(f"KrakenPythonClient.get_balance: {e}")
-            return 0
 
     def get_spread(self,asset='XBTUSD'):
         """
@@ -89,7 +86,15 @@ class KrakenPythonClient:
             orders_dict = orders_data.get('result', {}).get(order_type, {})
             
             if not orders_dict:
-                return pd.DataFrame()
+                no_orders = pd.DataFrame([{
+                    'order_id': None,
+                    'descr_pair': asset,
+                    'descr_type': 'buy',
+                    'descr_price': 0.0,
+                    'vol': 0.0,
+                    'vol_exec': 0.0
+                }])
+                return no_orders
 
             # Convert to DataFrame
             df = (
@@ -131,9 +136,6 @@ class KrakenPythonClient:
         except Exception as e:
             print(f"KrakenPythonClient.get_open_orders: {e}")
 
-    
-
-
     def get_order_id(self):
         pass
 
@@ -145,3 +147,4 @@ class KrakenPythonClient:
             return kraken.cancel_order(order_id)
         except Exception as e:
             print(f"KrakenPythonClient.cancel_order: {e}")
+        
