@@ -1,8 +1,10 @@
 use pyo3::prelude::*;
 use pyo3::wrap_pyfunction;
 use std::collections::HashMap;
-mod kraken_api;
-use kraken_api::{KrakenClient, KrakenError, OrderResponse};
+
+mod kraken;
+use kraken::{KrakenClient, KrakenError};
+use kraken::account::OrderResponse;
 mod binance_api;
 use binance_api::BinanceClient;
 
@@ -22,7 +24,6 @@ fn handle_binance_result<T, E: std::fmt::Debug>(result: Result<T, E>) -> PyResul
     }
 }
 
-// Python class to represent order response
 #[pyclass]
 #[derive(Clone)]
 pub struct PyOrderResponse {
@@ -30,67 +31,6 @@ pub struct PyOrderResponse {
     pub txid: Vec<String>,
     #[pyo3(get)]
     pub description: String,
-}
-
-#[pyclass]
-#[derive(Clone)]
-pub struct PyOrderDescription {
-    #[pyo3(get)]
-    pub pair: String,
-    #[pyo3(get, name = "type")]
-    pub order_type: String,
-    #[pyo3(get)]
-    pub ordertype: String,
-    #[pyo3(get)]
-    pub price: String,
-    #[pyo3(get)]
-    pub price2: String,
-    #[pyo3(get)]
-    pub leverage: String,
-    #[pyo3(get)]
-    pub order: String,
-    #[pyo3(get)]
-    pub close: Option<String>,
-}
-
-
-#[pyclass]
-#[derive(Clone)]
-pub struct PyOpenOrder {
-    #[pyo3(get)]
-    pub refid: Option<String>,
-    #[pyo3(get)]
-    pub userref: Option<String>,
-    #[pyo3(get)]
-    pub status: String,
-    #[pyo3(get)]
-    pub opentm: f64,
-    #[pyo3(get)]
-    pub starttm: f64,
-    #[pyo3(get)]
-    pub expiretm: f64,
-    #[pyo3(get)]
-    pub descr: PyOrderDescription,
-    #[pyo3(get)]
-    pub vol: f64,
-    #[pyo3(get)]
-    pub vol_exec: f64,
-    #[pyo3(get)]
-    pub cost: f64,
-    #[pyo3(get)]
-    pub fee: f64,
-    #[pyo3(get)]
-    pub price: f64,
-    #[pyo3(get)]
-    pub stopprice: f64,
-    #[pyo3(get)]
-    pub limitprice: f64,
-    #[pyo3(get)]
-    pub misc: String,
-    #[pyo3(get)]
-    pub oflags: String,
-    #[pyo3(get)]
-    pub reason: Option<String>,
 }
 
 #[pymethods]
@@ -152,11 +92,21 @@ fn get_balance() -> PyResult<HashMap<String, f64>> {
 #[pyfunction]
 fn add_order(pair: String, side: String, price: f64, volume: f64) -> PyResult<PyOrderResponse> {
     let client = KrakenClient::new();
-    let order_result = client.add_order(&pair, &side, price, volume);
-    let order_response = handle_kraken_result(order_result)?;
-    Ok(PyOrderResponse::from(order_response))
+    handle_kraken_result(client.add_order(&pair, &side, price, volume))
+        .map(PyOrderResponse::from)
 }
 
+#[pyfunction]
+fn get_recent_trades(ticker: String) -> PyResult<Vec<(f64, f64, f64, String, String, String)>> {
+    let client = KrakenClient::new();
+    handle_kraken_result(client.get_recent_trades(&ticker))
+}
+
+#[pyfunction]
+fn get_orderbook(pair: String) -> PyResult<(Vec<f64>, Vec<f64>)> {
+    let client = KrakenClient::new();
+    handle_kraken_result(client.get_orderbook(&pair))
+}
 
 #[pyfunction]
 fn get_binance_depth() -> PyResult<String> {
@@ -168,14 +118,17 @@ fn get_binance_depth() -> PyResult<String> {
 }
 
 #[pymodule]
-fn rust_kraken_client(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn rust_kraken_client(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(get_open_orders_raw, m)?)?;
+    m.add_function(wrap_pyfunction!(cancel_order, m)?)?;
     m.add_function(wrap_pyfunction!(get_bid, m)?)?;
     m.add_function(wrap_pyfunction!(get_ask, m)?)?;
     m.add_function(wrap_pyfunction!(get_spread, m)?)?;
     m.add_function(wrap_pyfunction!(get_balance, m)?)?;
     m.add_function(wrap_pyfunction!(add_order, m)?)?;
+    m.add_function(wrap_pyfunction!(get_recent_trades, m)?)?;
+    m.add_function(wrap_pyfunction!(get_orderbook, m)?)?;
     m.add_function(wrap_pyfunction!(get_binance_depth, m)?)?;
-    m.add_function(wrap_pyfunction!(get_open_orders_raw, m)?)?;
-    m.add_function(wrap_pyfunction!(cancel_order, m)?)?;
+    m.add_class::<PyOrderResponse>()?;
     Ok(())
 }
