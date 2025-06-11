@@ -11,6 +11,13 @@ class KrakenPythonClient:
     def __init__(self,asset='XBTUSD'):
         self.asset = asset
 
+    def test_connection(self):
+        try:
+            kraken.get_bid('XBTUSD')[0]
+            return True
+        except:
+            return False
+
     def get_bid(self,asset='XBTUSD',index=0):
         """
         Get the bid price of an asset.
