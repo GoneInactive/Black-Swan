@@ -81,8 +81,24 @@ impl KrakenClient {
         unimplemented!()
     }
 
-    pub fn get_orderbook(&self, _pair: &str) -> Result<(Vec<f64>, Vec<f64>), KrakenError> {
-        // Implementation would go here
-        unimplemented!()
+    pub fn get_orderbook(&self, pair: &str) -> Result<(Vec<f64>, Vec<f64>), KrakenError> {
+        let data = self.get_ticker(pair)?;
+        let pair_data = data.values().next().ok_or_else(|| KrakenError::ParseError("Missing pair data".to_string()))?;
+        
+        let bids: Vec<f64> = pair_data["b"]
+            .as_array()
+            .ok_or_else(|| KrakenError::ParseError("Missing bids".into()))?
+            .iter()
+            .filter_map(|bid| bid.as_str().and_then(|s| s.parse::<f64>().ok()))
+            .collect();
+
+        let asks: Vec<f64> = pair_data["a"]
+            .as_array()
+            .ok_or_else(|| KrakenError::ParseError("Missing asks".into()))?
+            .iter()
+            .filter_map(|ask| ask.as_str().and_then(|s| s.parse::<f64>().ok()))
+            .collect();
+
+        Ok((bids, asks))
     }
 }

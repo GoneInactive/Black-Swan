@@ -28,6 +28,7 @@ class KrakenPythonClient:
             return kraken.get_bid(asset)
         except Exception as e:
             print(f"KrakenPythonClient.get_bid: {e}")
+            return False
     
     def get_ask(self,asset='XBTUSD',index=0):
         """
@@ -39,6 +40,7 @@ class KrakenPythonClient:
             return kraken.get_ask(asset)
         except Exception as e:
             print(f"KrakenPythonClient.get_ask: {e}")
+            return False
     
     def get_balance(self,asset=None):
         """
@@ -54,6 +56,7 @@ class KrakenPythonClient:
                 return kraken.get_balance()[asset]
         except Exception as e:
             print(f"KrakenPythonClient.get_balance: {e}")
+            return False
 
     def get_spread(self,asset='XBTUSD'):
         """
@@ -63,6 +66,7 @@ class KrakenPythonClient:
             return kraken.get_spread(asset)
         except Exception as e:
             print(f"KrakenPythonClient.get_spread: {e}")
+            return False
     
     def add_order(self,asset,side,price,volume):
         """
@@ -73,6 +77,7 @@ class KrakenPythonClient:
             return order_response
         except Exception as e:
             print(f"KrakenPythonClient.add_order: {e}")
+            return False
     
     def get_open_orders(self, asset=None, order_type='open', headers=None):
         """
@@ -142,6 +147,7 @@ class KrakenPythonClient:
                 return df[valid_headers]
         except Exception as e:
             print(f"KrakenPythonClient.get_open_orders: {e}")
+            return False
 
     def get_order_id(self):
         pass
@@ -154,4 +160,12 @@ class KrakenPythonClient:
             return kraken.cancel_order(order_id)
         except Exception as e:
             print(f"KrakenPythonClient.cancel_order: {e}")
+            return False
+    
+    def get_orderbook(self,pair):
+        try:
+            return kraken.get_orderbook(pair)
+        except Exception as e:
+            print(f"KrakenPythonClient.get_orderbook: {e}")
+            return False
         
