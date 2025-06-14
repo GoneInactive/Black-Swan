@@ -95,6 +95,91 @@ impl KrakenClient {
 
         Ok(json_text)
     }
+    pub fn edit_order(
+        &self,
+        txid: &str,
+        pair: &str,
+        side: &str,
+        price: f64,
+        volume: f64,
+        new_userref: Option<&str>,
+    ) -> Result<OrderResponse, KrakenError> {
+        let side_lower = side.to_lowercase();
+        if side_lower != "buy" && side_lower != "sell" {
+            return Err(KrakenError::ParseError(
+                "Side must be 'buy' or 'sell'".to_string(),
+            ));
+        }
+
+        let nonce = self.generate_nonce();
+        
+        let mut params = vec![
+            ("nonce".to_string(), nonce.clone()),
+            ("ordertype".to_string(), "limit".to_string()),
+            ("type".to_string(), side_lower),
+            ("volume".to_string(), volume.to_string()),
+            ("price".to_string(), price.to_string()),
+            ("pair".to_string(), pair.to_string()),
+            ("txid".to_string(), txid.to_string()),
+        ];
+
+        if let Some(userref) = new_userref {
+            params.push(("userref".to_string(), userref.to_string()));
+        }
+
+        let body = params
+            .iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<String>>()
+            .join("&");
+
+        let path = "/0/private/EditOrder";
+        let url = format!("https://api.kraken.com{}", path);
+
+        let message = self.create_signature_message(path, &nonce, &body);
+        let signature = self.sign_message(&message)?;
+
+        let response = self.client
+            .post(&url)
+            .header("API-Key", &self.api_key)
+            .header("API-Sign", signature)
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .map_err(KrakenError::HttpError)?;
+
+        let json: serde_json::Value = response.json()
+            .map_err(|e| KrakenError::ParseError(e.to_string()))?;
+
+        if let Some(errors) = json.get("error").and_then(serde_json::Value::as_array) {
+            if !errors.is_empty() {
+                return Err(KrakenError::ParseError(
+                    format!("Kraken API error: {:?}", errors)
+                ));
+            }
+        }
+
+        let result = json.get("result")
+            .ok_or_else(|| KrakenError::MissingField("result".to_string()))?;
+
+        let txid = result.get("txid")
+            .and_then(|t| t.as_array())
+            .ok_or_else(|| KrakenError::ParseError("Missing txid array".to_string()))?
+            .iter()
+            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+            .collect::<Vec<String>>();
+
+        let description = result.get("descr")
+            .and_then(|d| d.get("order"))
+            .and_then(|o| o.as_str())
+            .unwrap_or("No description available")
+            .to_string();
+
+        Ok(OrderResponse {
+            txid,
+            description,
+        })
+    }
 
     pub fn cancel_order(&self, txid: &str) -> Result<bool, KrakenError> {
         let nonce = self.generate_nonce();

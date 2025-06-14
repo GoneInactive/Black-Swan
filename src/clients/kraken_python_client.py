@@ -28,6 +28,7 @@ class KrakenPythonClient:
             return kraken.get_bid(asset)
         except Exception as e:
             print(f"KrakenPythonClient.get_bid: {e}")
+            return False
     
     def get_ask(self,asset='XBTUSD',index=0):
         """
@@ -39,6 +40,7 @@ class KrakenPythonClient:
             return kraken.get_ask(asset)
         except Exception as e:
             print(f"KrakenPythonClient.get_ask: {e}")
+            return False
     
     def get_balance(self,asset=None):
         """
@@ -54,6 +56,7 @@ class KrakenPythonClient:
                 return kraken.get_balance()[asset]
         except Exception as e:
             print(f"KrakenPythonClient.get_balance: {e}")
+            return False
 
     def get_spread(self,asset='XBTUSD'):
         """
@@ -63,16 +66,22 @@ class KrakenPythonClient:
             return kraken.get_spread(asset)
         except Exception as e:
             print(f"KrakenPythonClient.get_spread: {e}")
+            return False
     
-    def add_order(self,asset,side,price,volume):
+    def add_order(self, asset, side, price, volume):
         """
-        Add an order to the Kraken API.
+        Add an order to the Kraken API and return a dictionary with parsed fields.
         """
         try:
             order_response = kraken.add_order(asset, side, price, volume)
-            return order_response
+            return {
+                "txid": order_response.txid[0] if isinstance(order_response.txid, list) else order_response.txid,
+                "description": order_response.description
+            }
         except Exception as e:
             print(f"KrakenPythonClient.add_order: {e}")
+            return False
+
     
     def get_open_orders(self, asset=None, order_type='open', headers=None):
         """
@@ -142,6 +151,7 @@ class KrakenPythonClient:
                 return df[valid_headers]
         except Exception as e:
             print(f"KrakenPythonClient.get_open_orders: {e}")
+            return False
 
     def get_order_id(self):
         pass
@@ -154,4 +164,35 @@ class KrakenPythonClient:
             return kraken.cancel_order(order_id)
         except Exception as e:
             print(f"KrakenPythonClient.cancel_order: {e}")
+            return False
+    
+    def get_orderbook(self,pair):
+        try:
+            return kraken.get_orderbook(pair)
+        except Exception as e:
+            print(f"KrakenPythonClient.get_orderbook: {e}")
+            return False
+
+    def edit_order(self, txid, pair, side, price, volume, new_userref=None):
+        """
+        Edit an existing order on the Kraken API.
+        
+        Args:
+            txid (str): The transaction ID of the order to edit
+            pair (str): The trading pair (e.g., 'XBTUSD')
+            side (str): The order side ('buy' or 'sell')
+            price (float): The new price for the order
+            volume (float): The new volume for the order
+            new_userref (str, optional): New user reference ID for the order
+            
+        Returns:
+            dict: Order response containing txid and description if successful
+            bool: False if the operation fails
+        """
+        try:
+            order_response = kraken.edit_order(txid, pair, side, price, volume, new_userref)
+            return order_response
+        except Exception as e:
+            print(f"KrakenPythonClient.edit_order: {e}")
+            return False
         

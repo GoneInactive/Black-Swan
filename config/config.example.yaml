@@ -1,5 +1,3 @@
-# config/config.example.yaml
-
 kraken:
   api_key: "<Put your API key here>"
   api_secret: "<Put your API secret here>"

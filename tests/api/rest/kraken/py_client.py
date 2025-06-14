@@ -83,6 +83,8 @@ def main():
         fails+=1
     print('='*60)
     print('')
+
+    #edit_result = kraken.edit_order(order_id, trading_pair, side, new_price, new_size)
     
 
     print(' ')

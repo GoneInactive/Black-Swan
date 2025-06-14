@@ -117,6 +117,20 @@ fn get_binance_depth() -> PyResult<String> {
     Ok(serde_json::to_string_pretty(&depth).unwrap_or_default())
 }
 
+#[pyfunction]
+fn edit_order(
+    txid: String,
+    pair: String,
+    side: String,
+    price: f64,
+    volume: f64,
+    new_userref: Option<String>,
+) -> PyResult<PyOrderResponse> {
+    let client = KrakenClient::new();
+    handle_kraken_result(client.edit_order(&txid, &pair, &side, price, volume, new_userref.as_deref()))
+        .map(PyOrderResponse::from)
+}
+
 #[pymodule]
 fn rust_kraken_client(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(get_open_orders_raw, m)?)?;
@@ -129,6 +143,7 @@ fn rust_kraken_client(_py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> 
     m.add_function(wrap_pyfunction!(get_recent_trades, m)?)?;
     m.add_function(wrap_pyfunction!(get_orderbook, m)?)?;
     m.add_function(wrap_pyfunction!(get_binance_depth, m)?)?;
+    m.add_function(wrap_pyfunction!(edit_order, m)?)?;
     m.add_class::<PyOrderResponse>()?;
     Ok(())
 }
