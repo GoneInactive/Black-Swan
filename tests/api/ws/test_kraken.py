@@ -21,10 +21,14 @@ def main():
     client.open()
 
     # Subscribe to market data
-    markets.subscribe_ticker(['BTC/USD'])
+    data = markets.get_orderbook('BTC/USD')
 
     # Place orders (requires authentication)
-    account.add_order('BTC/USD', 'buy', 'market', '0.001')
+    account.add_order('EURQ/USD', 'buy', 'limit', '10', '1') ## Have this return some info about it, including the order id
+
+    account.edit_order(...)
+
+    ## etc..
 
     # Close connection
     client.close()
