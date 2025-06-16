@@ -116,13 +116,19 @@ class KrakenAccount:
             raise ValueError("Side must be 'buy' or 'sell'")
             
         valid_order_types = ['market', 'limit', 'stop-loss', 'stop-loss-limit', 
-                           'take-profit', 'take-profit-limit', 'trailing-stop', 
-                           'trailing-stop-limit', 'settle-position']
+                        'take-profit', 'take-profit-limit', 'trailing-stop', 
+                        'trailing-stop-limit', 'settle-position']
         if order_type.lower() not in valid_order_types:
             raise ValueError(f"Order type must be one of: {valid_order_types}")
             
         if order_type.lower() in ['limit', 'stop-loss-limit', 'take-profit-limit', 'trailing-stop-limit'] and not price:
             raise ValueError(f"Price is required for {order_type} orders")
+            
+        # Convert volume and price to strings if they're numbers
+        if isinstance(volume, (int, float)):
+            volume = str(volume)
+        if price and isinstance(price, (int, float)):
+            price = str(price)
             
         order = {
             "event": "addOrder",
@@ -176,6 +182,12 @@ class KrakenAccount:
         if not self.client.connected:
             raise ConnectionError("WebSocket is not connected")
             
+        # Convert volume and price to strings if they're numbers
+        if isinstance(volume, (int, float)):
+            volume = str(volume)
+        if price and isinstance(price, (int, float)):
+            price = str(price)
+            
         edit = {
             "event": "editOrder",
             "orderid": txid,
@@ -192,7 +204,7 @@ class KrakenAccount:
                 
         authenticated_edit = self._get_authenticated_message(edit)
         self.client.send_message(authenticated_edit, private=True)
-        logger.info(f"Edited order {txid}")
+        logger.info(f"Edited order {txid} for pair {pair}")
         
         try:
             response = self.client.wait_for_response("editOrderStatus")
