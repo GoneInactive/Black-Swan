@@ -270,7 +270,8 @@ class KrakenWebSocket:
                 elif 'errorMessage' in data:
                     logger.error(f"Kraken error: {data['errorMessage']}")
                     self._handle_error(Exception(data['errorMessage']))
-            elif isinstance(data, list) and len(data) >= 4:
+            elif isinstance(data, list):
+                # Market data updates
                 await self._handle_market_data(data)
                 
         except json.JSONDecodeError as e:
@@ -304,128 +305,110 @@ class KrakenWebSocket:
                 except Exception as e:
                     logger.error(f"Error in {event_type} handler: {e}")
 
-    async def _handle_message(self, message: str) -> None:
-        """Handle incoming WebSocket messages."""
-        try:
-            data = json.loads(message)
-            
-            if isinstance(data, dict):
-                if 'event' in data:
-                    await self._handle_system_event(data)
-                elif 'errorMessage' in data:
-                    logger.error(f"Kraken error: {data['errorMessage']}")
-                    self._handle_error(Exception(data['errorMessage']))
-            elif isinstance(data, list):
-                # Market data updates
-                await self._handle_market_data(data)
-                
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse message: {e}")
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
-            self._handle_error(e)
-
     async def _handle_market_data(self, data: list) -> None:
         """Handle market data updates."""
         try:
-            # Different message formats:
+            # Kraken WebSocket messages can have different formats:
             # 1. For book updates: [channelID, {data}, "channelName", "pair"]
             # 2. For other updates: [channelID, data, "channelName", "pair"]
+            # 3. Sometimes without pair: [channelID, data, "channelName"]
             
-            if len(data) < 2:
+            if len(data) < 3:
+                logger.debug(f"Incomplete market data message: {data}")
                 return
                 
-            channel_id = data[0]
-            market_data = data[1]
-            
-            # Get channel name and pair if available
-            channel_name = data[2] if len(data) > 2 else None
-            pair = data[3] if len(data) > 3 else None
-            
-            # Update internal data stores
-            if channel_name and 'book' in channel_name:
-                self._update_orderbook(pair, market_data, channel_name)
-            elif channel_name and 'ticker' in channel_name:
-                self.tickers[pair] = market_data
-            
-            # Route to handlers
-            if channel_name and channel_name in self.message_handlers:
-                for handler in self.message_handlers[channel_name]:
-                    try:
-                        handler(pair, market_data)
-                    except Exception as e:
-                        logger.error(f"Error in {channel_name} handler: {e}")
-                        
-        except Exception as e:
-            logger.error(f"Error handling market data: {e}")
-            self._handle_error(e)
-    
-    async def _handle_market_data(self, data: list) -> None:
-        """Handle market data updates."""
-        try:
             channel_id = data[0]
             market_data = data[1]
             channel_name = data[2]
             pair = data[3] if len(data) > 3 else None
             
+            logger.debug(f"Processing market data: channel={channel_name}, pair={pair}")
+            
             # Update internal data stores
-            if 'book' in channel_name:
+            if channel_name and 'book' in channel_name and pair:
                 self._update_orderbook(pair, market_data, channel_name)
-            elif 'ticker' in channel_name:
+            elif channel_name and 'ticker' in channel_name and pair:
                 self.tickers[pair] = market_data
+            elif channel_name and 'trade' in channel_name and pair:
+                if pair not in self.trades:
+                    self.trades[pair] = []
+                # Keep only recent trades (last 100)
+                self.trades[pair].append(market_data)
+                if len(self.trades[pair]) > 100:
+                    self.trades[pair] = self.trades[pair][-100:]
             
             # Route to handlers
-            if channel_name in self.message_handlers:
+            if channel_name and channel_name in self.message_handlers:
                 for handler in self.message_handlers[channel_name]:
-                    handler(pair, market_data)
-                    
+                    try:
+                        if pair:
+                            handler(pair, market_data)
+                        else:
+                            handler(market_data)
+                    except Exception as e:
+                        logger.error(f"Error in {channel_name} handler: {e}")
+                        
         except Exception as e:
             logger.error(f"Error handling market data: {e}")
+            logger.debug(f"Problematic data: {data}")
+            # Don't re-raise to avoid breaking the message loop
     
     def _update_orderbook(self, pair: str, data: dict, channel_name: str) -> None:
         """Update internal orderbook storage."""
-        if pair not in self.orderbooks:
-            self.orderbooks[pair] = {'asks': [], 'bids': []}
-        
-        if 'as' in data:  # Snapshot of asks
-            self.orderbooks[pair]['asks'] = [
-                (float(price), float(volume), float(timestamp))
-                for price, volume, timestamp in data['as']
-            ]
-        elif 'a' in data:  # Ask update
-            self._process_book_update(self.orderbooks[pair]['asks'], data['a'])
+        try:
+            if pair not in self.orderbooks:
+                self.orderbooks[pair] = {'asks': [], 'bids': []}
             
-        if 'bs' in data:  # Snapshot of bids
-            self.orderbooks[pair]['bids'] = [
-                (float(price), float(volume), float(timestamp))
-                for price, volume, timestamp in data['bs']
-            ]
-        elif 'b' in data:  # Bid update
-            self._process_book_update(self.orderbooks[pair]['bids'], data['b'])
+            if 'as' in data:  # Snapshot of asks
+                self.orderbooks[pair]['asks'] = [
+                    (float(price), float(volume), float(timestamp))
+                    for price, volume, timestamp in data['as']
+                ]
+            elif 'a' in data:  # Ask update
+                self._process_book_update(self.orderbooks[pair]['asks'], data['a'], is_ask=True)
+                
+            if 'bs' in data:  # Snapshot of bids
+                self.orderbooks[pair]['bids'] = [
+                    (float(price), float(volume), float(timestamp))
+                    for price, volume, timestamp in data['bs']
+                ]
+            elif 'b' in data:  # Bid update
+                self._process_book_update(self.orderbooks[pair]['bids'], data['b'], is_ask=False)
+                
+        except Exception as e:
+            logger.error(f"Error updating orderbook for {pair}: {e}")
     
-    def _process_book_update(self, book_side: list, updates: list) -> None:
+    def _process_book_update(self, book_side: list, updates: list, is_ask: bool = True) -> None:
         """Process order book updates."""
-        for update in updates:
-            price, volume, timestamp = update
-            price = float(price)
-            volume = float(volume)
-            timestamp = float(timestamp)
-            
-            # Find and update existing price level
-            found = False
-            for i, (p, v, t) in enumerate(book_side):
-                if p == price:
-                    if volume == 0:
-                        del book_side[i]
-                    else:
-                        book_side[i] = (price, volume, timestamp)
-                    found = True
-                    break
-            
-            # Add new price level if not found and volume > 0
-            if not found and volume > 0:
-                book_side.append((price, volume, timestamp))
-                book_side.sort(reverse=(book_side is self.orderbooks[pair]['bids']))
+        try:
+            for update in updates:
+                if len(update) < 3:
+                    continue
+                    
+                price, volume, timestamp = update[:3]
+                price = float(price)
+                volume = float(volume)
+                timestamp = float(timestamp)
+                
+                # Find and update existing price level
+                found = False
+                for i, (p, v, t) in enumerate(book_side):
+                    if p == price:
+                        if volume == 0:
+                            del book_side[i]
+                        else:
+                            book_side[i] = (price, volume, timestamp)
+                        found = True
+                        break
+                
+                # Add new price level if not found and volume > 0
+                if not found and volume > 0:
+                    book_side.append((price, volume, timestamp))
+                    # Sort asks ascending, bids descending
+                    book_side.sort(reverse=not is_ask)
+                    
+        except Exception as e:
+            logger.error(f"Error processing book update: {e}")
     
     async def _close_connections(self) -> None:
         """Close WebSocket connections."""
@@ -450,8 +433,8 @@ class KrakenWebSocket:
         if pair not in self.orderbooks:
             return None
         return OrderBookSnapshot(
-            asks=self.orderbooks[pair]['asks'],
-            bids=self.orderbooks[pair]['bids'],
+            asks=self.orderbooks[pair]['asks'][:],  # Return copies
+            bids=self.orderbooks[pair]['bids'][:],
             pair=pair,
             timestamp=time.time()
         )
@@ -459,6 +442,10 @@ class KrakenWebSocket:
     def get_ticker(self, pair: str) -> Optional[dict]:
         """Get the current ticker data for a pair."""
         return self.tickers.get(pair)
+    
+    def get_trades(self, pair: str) -> Optional[list]:
+        """Get recent trades for a pair."""
+        return self.trades.get(pair, [])
     
     def wait_for_response(self, event_type: str, timeout: float = 10.0, reqid: str = None) -> Dict[str, Any]:
         """
