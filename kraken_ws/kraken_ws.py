@@ -1,83 +1,69 @@
 import asyncio
 import json
 import websockets
-import threading
-import time
-from typing import Dict, List, Callable, Optional, Any
 import logging
-import yaml
-import os
+from typing import Dict, List, Callable, Optional, Any
 from pathlib import Path
-from dataclasses import dataclass
-from collections import defaultdict
+import yaml
+import hashlib
+import hmac
+import base64
+import time
+import urllib.parse
 
-# Set up logging
+from account import KrakenAccount
+from markets import KrakenMarkets
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@dataclass
-class OrderBookSnapshot:
-    asks: List[tuple]  # (price, volume, timestamp)
-    bids: List[tuple]  # (price, volume, timestamp)
-    pair: str
-    timestamp: float
-
 class KrakenWebSocket:
     """
-    Core Kraken WebSocket API client for managing connections and message routing.
+    Kraken WebSocket client for real-time data streaming and trading.
     """
     
-    def __init__(self, api_key: str = None, api_secret: str = None):
-        """
-        Initialize the Kraken WebSocket client.
-        """
-        # Get the path to the config file relative to this file's location
-        current_file = Path(__file__)
-        config_path = current_file.parent.parent / "config" / "config.yaml"
+    WS_PUBLIC_URL = "wss://ws.kraken.com/"
+    WS_PRIVATE_URL = "wss://ws-auth.kraken.com/"
+    
+    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
+        self.api_key = None
+        self.api_secret = None
+        self._load_credentials(api_key, api_secret)
         
-        # Load configuration
-        config = self._load_config(config_path)
-        
-        # Set API credentials from config or parameters
-        self.api_key = api_key or config.get('kraken', {}).get('api_key')
-        self.api_secret = api_secret or config.get('kraken', {}).get('api_secret')
-        
-        # Validate that credentials were loaded
-        if not self.api_key or not self.api_secret:
-            logger.warning("API key and secret not provided - private endpoints will be unavailable")
-
-        # WebSocket URLs
-        self.public_url = "wss://ws.kraken.com"
-        self.private_url = "wss://ws-auth.kraken.com"
-        
-        # Connection management
         self.public_ws = None
         self.private_ws = None
         self.is_connected = False
-        self.is_running = False
+        self.is_authenticated = False
         
-        # Event loop and thread management
-        self.loop = None
-        self.thread = None
-        
-        # Callback handlers
-        self.message_handlers = defaultdict(list)
-        self.error_handlers = []
+        # Message handlers
+        self.handlers: Dict[str, List[Callable]] = {}
         
         # Subscription tracking
-        self.subscriptions = set()
+        self.subscriptions: Dict[str, Dict] = {}
         
-        # Data storage
-        self.orderbooks = {}
-        self.tickers = {}
-        self.trades = {}
+        # Initialize components
+        self.account = KrakenAccount(self.api_key, self.api_secret)
+        self.markets = KrakenMarkets()
         
-        # Response tracking
-        self.pending_responses = {}
-        self.response_events = {}
-        self.reqid_counter = 0
-
-    def _load_config(self, config_path):
+        # Connection management
+        self._running = False
+        self._reconnect_attempts = 0
+        self._max_reconnect_attempts = 5
+        
+    def _load_credentials(self, api_key: Optional[str], api_secret: Optional[str]):
+        """Load API credentials from config file or parameters."""
+        current_file = Path(__file__)
+        config_path = current_file.parent.parent / "config" / "config.yaml"
+        config = self._load_config(config_path)
+        
+        self.api_key = api_key or config.get('kraken', {}).get('api_key')
+        self.api_secret = api_secret or config.get('kraken', {}).get('api_secret')
+        
+        if not self.api_key or not self.api_secret:
+            logger.warning("API credentials not found. Private endpoints will not be available.")
+    
+    def _load_config(self, config_path: Path) -> Dict:
+        """Load configuration from YAML file."""
         try:
             with open(config_path, 'r') as file:
                 return yaml.safe_load(file)
@@ -85,203 +71,206 @@ class KrakenWebSocket:
             logger.warning(f"Config file not found at {config_path}")
             return {}
         except yaml.YAMLError as e:
-            logger.warning(f"Error parsing YAML config: {e}")
+            logger.error(f"Error parsing YAML config: {e}")
             return {}
-
-    def open(self) -> None:
-        """Open WebSocket connections and start the event loop."""
-        if self.is_connected:
-            logger.warning("WebSocket is already connected")
-            return
-            
-        logger.info("Opening Kraken WebSocket connection...")
-        
-        max_retries = 3
-        retry_delay = 5
-        retry_count = 0
-        
-        while retry_count < max_retries:
-            try:
-                self.thread = threading.Thread(target=self._run_event_loop, daemon=True)
-                self.thread.start()
-                
-                timeout = 10
-                start_time = time.time()
-                while not self.is_connected and (time.time() - start_time) < timeout:
-                    time.sleep(0.1)
-                    
-                if self.is_connected:
-                    logger.info("Kraken WebSocket connected successfully")
-                    return
-                    
-            except Exception as e:
-                logger.warning(f"Connection attempt {retry_count + 1} failed: {e}")
-                
-            retry_count += 1
-            if retry_count < max_retries:
-                logger.info(f"Retrying connection in {retry_delay} seconds...")
-                time.sleep(retry_delay)
-                
-        raise ConnectionError("Failed to establish WebSocket connection after multiple attempts")
     
-    def close(self) -> None:
-        """Close WebSocket connections and stop the event loop."""
-        if not self.is_connected:
-            logger.warning("WebSocket is not connected")
-            return
+    def _generate_auth_token(self) -> str:
+        """Generate authentication token for private WebSocket."""
+        if not self.api_key or not self.api_secret:
+            raise ValueError("API credentials required for authentication")
             
-        logger.info("Closing Kraken WebSocket connection...")
-        self.is_running = False
+        nonce = str(int(time.time() * 1000))
+        message = nonce + nonce
         
-        if self.loop and not self.loop.is_closed():
-            try:
-                future = asyncio.run_coroutine_threadsafe(self._close_connections(), self.loop)
-                future.result(timeout=5)
-            except (asyncio.TimeoutError, Exception) as e:
-                logger.warning(f"Error closing connections: {e}")
+        # Create signature
+        secret_bytes = base64.b64decode(self.api_secret)
+        message_bytes = message.encode('utf-8')
+        signature = hmac.new(secret_bytes, message_bytes, hashlib.sha512)
+        signature_b64 = base64.b64encode(signature.digest()).decode()
         
-        if self.thread and self.thread.is_alive():
-            self.thread.join(timeout=5)
-            
-        self.is_connected = False
-        logger.info("Kraken WebSocket connection closed")
+        return signature_b64
     
-    def add_message_handler(self, message_type: str, handler: Callable) -> None:
-        """Add a message handler for specific message types."""
-        self.message_handlers[message_type].append(handler)
-    
-    def add_error_handler(self, handler: Callable) -> None:
-        """Add an error handler callback."""
-        self.error_handlers.append(handler)
-    
-    def send_message(self, message: dict, private: bool = False) -> None:
-        """Send a message through the WebSocket."""
-        if not self.is_connected:
-            raise ConnectionError("WebSocket is not connected")
-            
-        ws = self.private_ws if private else self.public_ws
-        if not ws:
-            ws_type = "private" if private else "public"
-            raise ConnectionError(f"{ws_type.capitalize()} WebSocket is not available")
-            
-        if self.loop:
-            asyncio.run_coroutine_threadsafe(
-                ws.send(json.dumps(message)), 
-                self.loop
-            )
-
-    def _run_event_loop(self) -> None:
-        """Run the asyncio event loop in a separate thread."""
-        self.loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self.loop)
-        
+    async def connect(self, private: bool = False):
+        """Connect to Kraken WebSocket."""
         try:
-            self.loop.run_until_complete(self._connect_and_listen())
-        except Exception as e:
-            logger.error(f"Event loop error: {e}")
-            self._handle_error(e)
-        finally:
-            try:
-                pending = asyncio.all_tasks(self.loop)
-                for task in pending:
-                    task.cancel()
-                if pending:
-                    self.loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
-            except Exception as e:
-                logger.warning(f"Error cleaning up tasks: {e}")
-            finally:
-                self.loop.close()
-                logger.debug("Event loop closed")
-    
-    async def _connect_and_listen(self) -> None:
-        """Establish WebSocket connections and listen for messages."""
-        self.is_running = True
-        
-        try:
-            self.public_ws = await websockets.connect(self.public_url)
-            logger.info("Connected to public WebSocket")
+            if private and (not self.api_key or not self.api_secret):
+                raise ValueError("API credentials required for private connection")
             
-            if self.api_key and self.api_secret:
-                try:
-                    self.private_ws = await websockets.connect(self.private_url)
-                    logger.info("Connected to private WebSocket")
-                except Exception as e:
-                    logger.warning(f"Could not connect to private WebSocket: {e}")
+            url = self.WS_PRIVATE_URL if private else self.WS_PUBLIC_URL
+            
+            if private:
+                self.private_ws = await websockets.connect(url)
+                await self._authenticate()
+                logger.info("Connected to Kraken private WebSocket")
+            else:
+                self.public_ws = await websockets.connect(url)
+                logger.info("Connected to Kraken public WebSocket")
             
             self.is_connected = True
-            await self._listen_for_messages()
+            self._reconnect_attempts = 0
             
         except Exception as e:
-            logger.error(f"Connection error: {e}")
-            self.is_connected = False
-            self._handle_error(e)
+            logger.error(f"Failed to connect to WebSocket: {e}")
+            raise
     
-    async def _listen_for_messages(self) -> None:
-        """Listen for incoming WebSocket messages."""
-        tasks = []
+    async def _authenticate(self):
+        """Authenticate private WebSocket connection."""
+        if not self.private_ws:
+            raise ValueError("Private WebSocket not connected")
         
-        if self.public_ws:
-            tasks.append(asyncio.create_task(self._listen_to_websocket(self.public_ws, "public")))
-        if self.private_ws:
-            tasks.append(asyncio.create_task(self._listen_to_websocket(self.private_ws, "private")))
+        try:
+            token = self._generate_auth_token()
+            auth_message = {
+                "event": "subscribe",
+                "subscription": {
+                    "name": "ownTrades",
+                    "token": token
+                }
+            }
+            
+            await self.private_ws.send(json.dumps(auth_message))
+            self.is_authenticated = True
+            logger.info("Authenticated with Kraken private WebSocket")
+            
+        except Exception as e:
+            logger.error(f"Authentication failed: {e}")
+            raise
+    
+    def add_handler(self, event_type: str, handler: Callable):
+        """Add message handler for specific event type."""
+        if event_type not in self.handlers:
+            self.handlers[event_type] = []
+        self.handlers[event_type].append(handler)
+        logger.info(f"Added handler for {event_type}")
+    
+    def remove_handler(self, event_type: str, handler: Callable):
+        """Remove message handler."""
+        if event_type in self.handlers and handler in self.handlers[event_type]:
+            self.handlers[event_type].remove(handler)
+    
+    async def subscribe_ticker(self, pairs: List[str], handler: Optional[Callable] = None):
+        """Subscribe to ticker updates."""
+        if handler:
+            self.add_handler('ticker', handler)
         
-        if not tasks:
-            logger.error("No WebSocket connections available")
-            return
-            
-        try:
-            done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
-            
-            for task in pending:
-                task.cancel()
-                try:
-                    await task
-                except asyncio.CancelledError:
-                    pass
-                
-        except Exception as e:
-            logger.error(f"Error in message listening: {e}")
-            self._handle_error(e)
+        subscription = {
+            "event": "subscribe",
+            "pair": pairs,
+            "subscription": {"name": "ticker"}
+        }
+        
+        await self._send_subscription(subscription, is_private=False)
+        self.subscriptions['ticker'] = subscription
+        logger.info(f"Subscribed to ticker for pairs: {pairs}")
     
-    async def _listen_to_websocket(self, ws, ws_type: str) -> None:
-        """Listen for messages from a specific WebSocket connection."""
-        try:
-            while self.is_running and ws:
-                try:
-                    message = await asyncio.wait_for(ws.recv(), timeout=1.0)
-                    await self._handle_message(message)
-                except asyncio.TimeoutError:
-                    continue
-                except websockets.exceptions.ConnectionClosed:
-                    logger.warning(f"{ws_type.capitalize()} WebSocket connection closed")
-                    break
-        except Exception as e:
-            logger.error(f"Error listening to {ws_type} WebSocket: {e}")
-            self._handle_error(e)
+    async def subscribe_ohlc(self, pairs: List[str], interval: int = 1, handler: Optional[Callable] = None):
+        """Subscribe to OHLC (candlestick) data."""
+        if handler:
+            self.add_handler('ohlc', handler)
+        
+        subscription = {
+            "event": "subscribe",
+            "pair": pairs,
+            "subscription": {"name": "ohlc", "interval": interval}
+        }
+        
+        await self._send_subscription(subscription, is_private=False)
+        self.subscriptions['ohlc'] = subscription
+        logger.info(f"Subscribed to OHLC for pairs: {pairs}, interval: {interval}")
     
-    async def _handle_message(self, message: str) -> None:
-        """Handle incoming WebSocket messages."""
+    async def subscribe_trade(self, pairs: List[str], handler: Optional[Callable] = None):
+        """Subscribe to trade data."""
+        if handler:
+            self.add_handler('trade', handler)
+        
+        subscription = {
+            "event": "subscribe",
+            "pair": pairs,
+            "subscription": {"name": "trade"}
+        }
+        
+        await self._send_subscription(subscription, is_private=False)
+        self.subscriptions['trade'] = subscription
+        logger.info(f"Subscribed to trades for pairs: {pairs}")
+    
+    async def subscribe_book(self, pairs: List[str], depth: int = 10, handler: Optional[Callable] = None):
+        """Subscribe to order book data."""
+        if handler:
+            self.add_handler('book', handler)
+        
+        subscription = {
+            "event": "subscribe",
+            "pair": pairs,
+            "subscription": {"name": "book", "depth": depth}
+        }
+        
+        await self._send_subscription(subscription, is_private=False)
+        self.subscriptions['book'] = subscription
+        logger.info(f"Subscribed to order book for pairs: {pairs}, depth: {depth}")
+    
+    async def subscribe_own_trades(self, handler: Optional[Callable] = None):
+        """Subscribe to own trades (private)."""
+        if not self.is_authenticated:
+            await self.connect(private=True)
+        
+        if handler:
+            self.add_handler('ownTrades', handler)
+        
+        # Authentication already subscribes to ownTrades
+        logger.info("Subscribed to own trades")
+    
+    async def subscribe_open_orders(self, handler: Optional[Callable] = None):
+        """Subscribe to open orders (private)."""
+        if not self.is_authenticated:
+            await self.connect(private=True)
+        
+        if handler:
+            self.add_handler('openOrders', handler)
+        
+        subscription = {
+            "event": "subscribe",
+            "subscription": {"name": "openOrders"}
+        }
+        
+        await self._send_subscription(subscription, is_private=True)
+        self.subscriptions['openOrders'] = subscription
+        logger.info("Subscribed to open orders")
+    
+    async def _send_subscription(self, subscription: Dict, is_private: bool = False):
+        """Send subscription message to appropriate WebSocket."""
+        ws = self.private_ws if is_private else self.public_ws
+        
+        if not ws:
+            if is_private:
+                await self.connect(private=True)
+                ws = self.private_ws
+            else:
+                await self.connect(private=False)
+                ws = self.public_ws
+        
+        await ws.send(json.dumps(subscription))
+    
+    async def _handle_message(self, message: str, is_private: bool = False):
+        """Handle incoming WebSocket message."""
         try:
             data = json.loads(message)
             
+            # Handle different message types
             if isinstance(data, dict):
                 if 'event' in data:
-                    await self._handle_system_event(data)
+                    await self._handle_event_message(data)
                 elif 'errorMessage' in data:
-                    logger.error(f"Kraken error: {data['errorMessage']}")
-                    self._handle_error(Exception(data['errorMessage']))
-            elif isinstance(data, list):
-                # Market data updates
-                await self._handle_market_data(data)
-                
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse message: {e}")
+                    logger.error(f"WebSocket error: {data['errorMessage']}")
+            elif isinstance(data, list) and len(data) >= 2:
+                await self._handle_data_message(data)
+            
+        except json.JSONDecodeError:
+            logger.error(f"Failed to decode message: {message}")
         except Exception as e:
             logger.error(f"Error handling message: {e}")
-            self._handle_error(e)
     
-    async def _handle_system_event(self, data: dict) -> None:
-        """Handle system events from Kraken."""
+    async def _handle_event_message(self, data: Dict):
+        """Handle event messages (subscriptions, heartbeats, etc.)."""
         event = data.get('event')
         
         if event == 'heartbeat':
@@ -289,190 +278,134 @@ class KrakenWebSocket:
         elif event == 'systemStatus':
             logger.info(f"System status: {data.get('status')}")
         elif event == 'subscriptionStatus':
-            logger.info(f"Subscription status: {data}")
-        elif event in ['addOrderStatus', 'cancelOrderStatus', 'editOrderStatus']:
-            event_key = f"{event}_{data.get('reqid', 'default')}"
-            if event_key in self.pending_responses:
-                self.pending_responses[event_key] = data
-                if event_key in self.response_events:
-                    self.response_events[event_key].set()
-            
-        event_type = event if event else 'system'
-        if event_type in self.message_handlers:
-            for handler in self.message_handlers[event_type]:
+            status = data.get('status')
+            subscription = data.get('subscription', {}).get('name', 'unknown')
+            logger.info(f"Subscription {subscription}: {status}")
+        
+        # Call registered handlers
+        if event in self.handlers:
+            for handler in self.handlers[event]:
                 try:
-                    handler(data)
+                    await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
                 except Exception as e:
-                    logger.error(f"Error in {event_type} handler: {e}")
-
-    async def _handle_market_data(self, data: list) -> None:
-        """Handle market data updates."""
+                    logger.error(f"Error in {event} handler: {e}")
+    
+    async def _handle_data_message(self, data: List):
+        """Handle data messages (ticker, trades, etc.)."""
         try:
-            # Kraken WebSocket messages can have different formats:
-            # 1. For book updates: [channelID, {data}, "channelName", "pair"]
-            # 2. For other updates: [channelID, data, "channelName", "pair"]
-            # 3. Sometimes without pair: [channelID, data, "channelName"]
+            channel_name = data[-2]  # Channel name is second to last element
+            pair = data[-1] if len(data) > 2 else None
             
-            if len(data) < 3:
-                logger.debug(f"Incomplete market data message: {data}")
-                return
-                
-            channel_id = data[0]
-            market_data = data[1]
-            channel_name = data[2]
-            pair = data[3] if len(data) > 3 else None
+            # Determine message type and call appropriate handlers
+            if 'ticker' in channel_name:
+                if 'ticker' in self.handlers:
+                    for handler in self.handlers['ticker']:
+                        try:
+                            await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
+                        except Exception as e:
+                            logger.error(f"Error in ticker handler: {e}")
             
-            logger.debug(f"Processing market data: channel={channel_name}, pair={pair}")
+            elif 'ohlc' in channel_name:
+                if 'ohlc' in self.handlers:
+                    for handler in self.handlers['ohlc']:
+                        try:
+                            await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
+                        except Exception as e:
+                            logger.error(f"Error in OHLC handler: {e}")
             
-            # Update internal data stores
-            if channel_name and 'book' in channel_name and pair:
-                self._update_orderbook(pair, market_data, channel_name)
-            elif channel_name and 'ticker' in channel_name and pair:
-                self.tickers[pair] = market_data
-            elif channel_name and 'trade' in channel_name and pair:
-                if pair not in self.trades:
-                    self.trades[pair] = []
-                # Keep only recent trades (last 100)
-                self.trades[pair].append(market_data)
-                if len(self.trades[pair]) > 100:
-                    self.trades[pair] = self.trades[pair][-100:]
+            elif 'trade' in channel_name:
+                if 'trade' in self.handlers:
+                    for handler in self.handlers['trade']:
+                        try:
+                            await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
+                        except Exception as e:
+                            logger.error(f"Error in trade handler: {e}")
             
-            # Route to handlers
-            if channel_name and channel_name in self.message_handlers:
-                for handler in self.message_handlers[channel_name]:
-                    try:
-                        if pair:
-                            handler(pair, market_data)
-                        else:
-                            handler(market_data)
-                    except Exception as e:
-                        logger.error(f"Error in {channel_name} handler: {e}")
-                        
+            elif 'book' in channel_name:
+                if 'book' in self.handlers:
+                    for handler in self.handlers['book']:
+                        try:
+                            await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
+                        except Exception as e:
+                            logger.error(f"Error in book handler: {e}")
+            
+            elif channel_name == 'ownTrades':
+                if 'ownTrades' in self.handlers:
+                    for handler in self.handlers['ownTrades']:
+                        try:
+                            await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
+                        except Exception as e:
+                            logger.error(f"Error in ownTrades handler: {e}")
+            
+            elif channel_name == 'openOrders':
+                if 'openOrders' in self.handlers:
+                    for handler in self.handlers['openOrders']:
+                        try:
+                            await handler(data) if asyncio.iscoroutinefunction(handler) else handler(data)
+                        except Exception as e:
+                            logger.error(f"Error in openOrders handler: {e}")
+                            
         except Exception as e:
-            logger.error(f"Error handling market data: {e}")
-            logger.debug(f"Problematic data: {data}")
-            # Don't re-raise to avoid breaking the message loop
+            logger.error(f"Error processing data message: {e}")
     
-    def _update_orderbook(self, pair: str, data: dict, channel_name: str) -> None:
-        """Update internal orderbook storage."""
-        try:
-            if pair not in self.orderbooks:
-                self.orderbooks[pair] = {'asks': [], 'bids': []}
-            
-            if 'as' in data:  # Snapshot of asks
-                self.orderbooks[pair]['asks'] = [
-                    (float(price), float(volume), float(timestamp))
-                    for price, volume, timestamp in data['as']
-                ]
-            elif 'a' in data:  # Ask update
-                self._process_book_update(self.orderbooks[pair]['asks'], data['a'], is_ask=True)
-                
-            if 'bs' in data:  # Snapshot of bids
-                self.orderbooks[pair]['bids'] = [
-                    (float(price), float(volume), float(timestamp))
-                    for price, volume, timestamp in data['bs']
-                ]
-            elif 'b' in data:  # Bid update
-                self._process_book_update(self.orderbooks[pair]['bids'], data['b'], is_ask=False)
-                
-        except Exception as e:
-            logger.error(f"Error updating orderbook for {pair}: {e}")
-    
-    def _process_book_update(self, book_side: list, updates: list, is_ask: bool = True) -> None:
-        """Process order book updates."""
-        try:
-            for update in updates:
-                if len(update) < 3:
-                    continue
-                    
-                price, volume, timestamp = update[:3]
-                price = float(price)
-                volume = float(volume)
-                timestamp = float(timestamp)
-                
-                # Find and update existing price level
-                found = False
-                for i, (p, v, t) in enumerate(book_side):
-                    if p == price:
-                        if volume == 0:
-                            del book_side[i]
-                        else:
-                            book_side[i] = (price, volume, timestamp)
-                        found = True
-                        break
-                
-                # Add new price level if not found and volume > 0
-                if not found and volume > 0:
-                    book_side.append((price, volume, timestamp))
-                    # Sort asks ascending, bids descending
-                    book_side.sort(reverse=not is_ask)
-                    
-        except Exception as e:
-            logger.error(f"Error processing book update: {e}")
-    
-    async def _close_connections(self) -> None:
-        """Close WebSocket connections."""
-        close_tasks = []
-        if self.public_ws:
-            close_tasks.append(self.public_ws.close())
-        if self.private_ws:
-            close_tasks.append(self.private_ws.close())
-        if close_tasks:
-            await asyncio.gather(*close_tasks, return_exceptions=True)
-    
-    def _handle_error(self, error: Exception) -> None:
-        """Handle errors by calling registered error handlers."""
-        for handler in self.error_handlers:
-            try:
-                handler(error)
-            except Exception as e:
-                logger.error(f"Error in error handler: {e}")
-    
-    def get_orderbook(self, pair: str) -> Optional[OrderBookSnapshot]:
-        """Get the current orderbook snapshot for a pair."""
-        if pair not in self.orderbooks:
-            return None
-        return OrderBookSnapshot(
-            asks=self.orderbooks[pair]['asks'][:],  # Return copies
-            bids=self.orderbooks[pair]['bids'][:],
-            pair=pair,
-            timestamp=time.time()
-        )
-    
-    def get_ticker(self, pair: str) -> Optional[dict]:
-        """Get the current ticker data for a pair."""
-        return self.tickers.get(pair)
-    
-    def get_trades(self, pair: str) -> Optional[list]:
-        """Get recent trades for a pair."""
-        return self.trades.get(pair, [])
-    
-    def wait_for_response(self, event_type: str, timeout: float = 10.0, reqid: str = None) -> Dict[str, Any]:
-        """
-        Wait for a specific event response from the WebSocket.
-        """
-        if not self.is_connected:
-            raise ConnectionError("WebSocket is not connected")
-            
-        event_key = f"{event_type}_{reqid or 'default'}"
-        self.response_events[event_key] = threading.Event()
-        self.pending_responses[event_key] = None
+    async def run(self):
+        """Run the WebSocket client."""
+        self._running = True
         
         try:
-            if not self.response_events[event_key].wait(timeout):
-                raise TimeoutError(f"Timeout waiting for {event_type} response")
-                
-            response = self.pending_responses[event_key]
-            if response is None:
-                raise RuntimeError(f"No response data received for {event_type}")
-                
-            return response
+            # Start public connection by default
+            if not self.public_ws:
+                await self.connect(private=False)
             
-        finally:
-            self.response_events.pop(event_key, None)
-            self.pending_responses.pop(event_key, None)
-
-    @property
-    def connected(self) -> bool:
-        """Check if WebSocket is connected."""
-        return self.is_connected
+            tasks = []
+            
+            # Listen to public WebSocket
+            if self.public_ws:
+                tasks.append(asyncio.create_task(self._listen(self.public_ws, is_private=False)))
+            
+            # Listen to private WebSocket if connected
+            if self.private_ws:
+                tasks.append(asyncio.create_task(self._listen(self.private_ws, is_private=True)))
+            
+            # Wait for all tasks
+            await asyncio.gather(*tasks)
+            
+        except Exception as e:
+            logger.error(f"Error in run loop: {e}")
+            if self._reconnect_attempts < self._max_reconnect_attempts:
+                self._reconnect_attempts += 1
+                logger.info(f"Attempting reconnection {self._reconnect_attempts}/{self._max_reconnect_attempts}")
+                await asyncio.sleep(5)
+                await self.run()
+    
+    async def _listen(self, ws, is_private: bool = False):
+        """Listen to WebSocket messages."""
+        try:
+            async for message in ws:
+                if not self._running:
+                    break
+                await self._handle_message(message, is_private)
+        except websockets.exceptions.ConnectionClosed:
+            logger.warning(f"{'Private' if is_private else 'Public'} WebSocket connection closed")
+        except Exception as e:
+            logger.error(f"Error in WebSocket listener: {e}")
+    
+    async def close(self):
+        """Close WebSocket connections."""
+        self._running = False
+        
+        if self.public_ws:
+            await self.public_ws.close()
+            logger.info("Closed public WebSocket connection")
+        
+        if self.private_ws:
+            await self.private_ws.close()
+            logger.info("Closed private WebSocket connection")
+        
+        self.is_connected = False
+        self.is_authenticated = False
+    
+    def __del__(self):
+        """Cleanup on deletion."""
+        if self.is_connected:
+            asyncio.create_task(self.close())

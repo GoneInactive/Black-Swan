@@ -1,374 +1,343 @@
-from typing import List, Optional, Dict, Any, Tuple
-import logging
-import requests
-import time
-import hmac
+import asyncio
+import aiohttp
 import hashlib
+import hmac
 import base64
+import time
 import urllib.parse
-from .kraken_ws import KrakenWebSocket
-from dataclasses import dataclass
+import json
+import logging
+from typing import Dict, List, Optional, Any
+from pathlib import Path
+import yaml
 
 logger = logging.getLogger(__name__)
 
-@dataclass
-class Order:
-    txid: str
-    pair: str
-    side: str
-    type: str
-    volume: float
-    price: Optional[float] = None
-    status: str = 'pending'
-    timestamp: float = time.time()
-
-class KrakenAuth:
-    """Helper class for Kraken API authentication."""
+class KrakenAccount:
+    """
+    Kraken account management and trading operations.
+    Handles REST API calls for account info, orders, and trades.
+    """
     
-    def __init__(self, api_key: str, api_secret: str):
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.ws_token = None
-        self.token_expiry = None
+    API_URL = "https://api.kraken.com"
+    API_VERSION = "0"
+    
+    def __init__(self, api_key: Optional[str] = None, api_secret: Optional[str] = None):
+        self.api_key = None
+        self.api_secret = None
+        self._load_credentials(api_key, api_secret)
+        self.session = None
+    
+    def _load_credentials(self, api_key: Optional[str], api_secret: Optional[str]):
+        """Load API credentials from config file or parameters."""
+        current_file = Path(__file__)
+        config_path = current_file.parent.parent / "config" / "config.yaml"
+        config = self._load_config(config_path)
         
-    def get_kraken_signature(self, url_path: str, data: Dict[str, Any], secret: str) -> str:
-        post_data = urllib.parse.urlencode(data)
-        encoded = (str(data['nonce']) + post_data).encode()
-        message = url_path.encode() + hashlib.sha256(encoded).digest()
+        self.api_key = api_key or config.get('kraken', {}).get('api_key')
+        self.api_secret = api_secret or config.get('kraken', {}).get('api_secret')
+        
+        if not self.api_key or not self.api_secret:
+            logger.warning("API credentials not found. Account operations will not be available.")
+    
+    def _load_config(self, config_path: Path) -> Dict:
+        """Load configuration from YAML file."""
+        try:
+            with open(config_path, 'r') as file:
+                return yaml.safe_load(file)
+        except FileNotFoundError:
+            logger.warning(f"Config file not found at {config_path}")
+            return {}
+        except yaml.YAMLError as e:
+            logger.error(f"Error parsing YAML config: {e}")
+            return {}
+    
+    def _get_kraken_signature(self, urlpath: str, data: Dict, secret: str) -> str:
+        """Generate Kraken API signature."""
+        postdata = urllib.parse.urlencode(data)
+        encoded = (str(data['nonce']) + postdata).encode()
+        message = urlpath.encode() + hashlib.sha256(encoded).digest()
+        
         mac = hmac.new(base64.b64decode(secret), message, hashlib.sha512)
-        return base64.b64encode(mac.digest()).decode()
+        sigdigest = base64.b64encode(mac.digest())
+        return sigdigest.decode()
+    
+    async def _get_session(self):
+        """Get or create aiohttp session."""
+        if not self.session:
+            self.session = aiohttp.ClientSession()
+        return self.session
+    
+    async def _make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, 
+                           is_private: bool = False) -> Dict:
+        """Make HTTP request to Kraken API."""
+        if is_private and (not self.api_key or not self.api_secret):
+            raise ValueError("API credentials required for private endpoints")
         
-    def get_websocket_token(self, base_url: str = "https://api.kraken.com") -> str:
-        if self.ws_token and self.token_expiry and time.time() < self.token_expiry - 60:
-            return self.ws_token
+        session = await self._get_session()
+        url = f"{self.API_URL}/{self.API_VERSION}/{endpoint}"
+        
+        headers = {'User-Agent': 'Kraken WebSocket Client'}
+        
+        if is_private:
+            if not data:
+                data = {}
+            data['nonce'] = str(int(1000 * time.time()))
             
-        url_path = "/0/private/GetWebSocketsToken"
-        url = base_url + url_path
-        data = {'nonce': str(int(1000 * time.time()))}
-        signature = self.get_kraken_signature(url_path, data, self.api_secret)
-        
-        headers = {
-            'API-Key': self.api_key,
-            'API-Sign': signature,
-            'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-        }
+            urlpath = f"/{self.API_VERSION}/{endpoint}"
+            signature = self._get_kraken_signature(urlpath, data, self.api_secret)
+            
+            headers.update({
+                'API-Key': self.api_key,
+                'API-Sign': signature
+            })
         
         try:
-            response = requests.post(url, headers=headers, data=data, timeout=10)
-            response.raise_for_status()
-            result = response.json()
+            if method.upper() == 'GET':
+                async with session.get(url, headers=headers, params=data) as response:
+                    result = await response.json()
+            else:
+                async with session.post(url, headers=headers, data=data) as response:
+                    result = await response.json()
             
             if result.get('error'):
-                raise Exception(f"Kraken API Error: {result['error']}")
-                
-            self.ws_token = result['result']['token']
-            self.token_expiry = time.time() + (10 * 60)
-            logger.info("Successfully retrieved WebSocket authentication token")
-            return self.ws_token
+                raise Exception(f"API Error: {result['error']}")
             
-        except requests.exceptions.RequestException as e:
-            raise Exception(f"Failed to retrieve WebSocket token: {e}")
-        except KeyError as e:
-            raise Exception(f"Invalid response format: {e}")
-
-class OrderManager:
-    """Helper class for managing orders through the Kraken WebSocket API."""
+            return result.get('result', {})
+            
+        except Exception as e:
+            logger.error(f"API request failed: {e}")
+            raise
     
-    def __init__(self, account: 'KrakenAccount'):
-        self.account = account
-        self.orders = {}
-        
-    def add_order(self, pair: str, order_type: str, side: str, volume: str, price: Optional[str] = None, **kwargs) -> Dict[str, Any]:
+    # Account Information Methods
+    async def get_account_balance(self) -> Dict[str, str]:
+        """Get account balance."""
+        return await self._make_request('POST', 'private/Balance', is_private=True)
+    
+    async def get_trade_balance(self, asset: str = 'ZUSD') -> Dict:
+        """Get trade balance info."""
+        data = {'asset': asset}
+        return await self._make_request('POST', 'private/TradeBalance', data, is_private=True)
+    
+    async def get_open_orders(self, trades: bool = False) -> Dict:
+        """Get open orders."""
+        data = {'trades': trades}
+        return await self._make_request('POST', 'private/OpenOrders', data, is_private=True)
+    
+    async def get_closed_orders(self, trades: bool = False, userref: Optional[int] = None,
+                               start: Optional[int] = None, end: Optional[int] = None,
+                               ofs: Optional[int] = None, closetime: str = 'both') -> Dict:
+        """Get closed orders."""
+        data = {
+            'trades': trades,
+            'closetime': closetime
+        }
+        if userref is not None:
+            data['userref'] = userref
+        if start is not None:
+            data['start'] = start
+        if end is not None:
+            data['end'] = end
+        if ofs is not None:
+            data['ofs'] = ofs
+            
+        return await self._make_request('POST', 'private/ClosedOrders', data, is_private=True)
+    
+    async def get_orders_info(self, txid: List[str], trades: bool = False) -> Dict:
+        """Get orders info."""
+        data = {
+            'txid': ','.join(txid),
+            'trades': trades
+        }
+        return await self._make_request('POST', 'private/QueryOrders', data, is_private=True)
+    
+    async def get_trades_history(self, type: str = 'all', trades: bool = False,
+                                start: Optional[int] = None, end: Optional[int] = None,
+                                ofs: Optional[int] = None) -> Dict:
+        """Get trades history."""
+        data = {
+            'type': type,
+            'trades': trades
+        }
+        if start is not None:
+            data['start'] = start
+        if end is not None:
+            data['end'] = end
+        if ofs is not None:
+            data['ofs'] = ofs
+            
+        return await self._make_request('POST', 'private/TradesHistory', data, is_private=True)
+    
+    async def get_trades_info(self, txid: List[str], trades: bool = False) -> Dict:
+        """Get trades info."""
+        data = {
+            'txid': ','.join(txid),
+            'trades': trades
+        }
+        return await self._make_request('POST', 'private/QueryTrades', data, is_private=True)
+    
+    async def get_open_positions(self, txid: Optional[List[str]] = None,
+                                docalcs: bool = False) -> Dict:
+        """Get open positions."""
+        data = {'docalcs': docalcs}
+        if txid:
+            data['txid'] = ','.join(txid)
+            
+        return await self._make_request('POST', 'private/OpenPositions', data, is_private=True)
+    
+    async def get_ledgers_info(self, asset: Optional[str] = None, aclass: str = 'currency',
+                              type: str = 'all', start: Optional[int] = None,
+                              end: Optional[int] = None, ofs: Optional[int] = None) -> Dict:
+        """Get ledgers info."""
+        data = {
+            'aclass': aclass,
+            'type': type
+        }
+        if asset:
+            data['asset'] = asset
+        if start is not None:
+            data['start'] = start
+        if end is not None:
+            data['end'] = end
+        if ofs is not None:
+            data['ofs'] = ofs
+            
+        return await self._make_request('POST', 'private/Ledgers', data, is_private=True)
+    
+    # Trading Methods
+    async def add_order(self, pair: str, type: str, ordertype: str, volume: str,
+                       price: Optional[str] = None, price2: Optional[str] = None,
+                       leverage: Optional[str] = None, oflags: Optional[str] = None,
+                       starttm: Optional[str] = None, expiretm: Optional[str] = None,
+                       userref: Optional[int] = None, validate: bool = False,
+                       close_ordertype: Optional[str] = None, close_price: Optional[str] = None,
+                       close_price2: Optional[str] = None, timeinforce: Optional[str] = None) -> Dict:
         """Add a new order."""
-        return self.account.add_order(pair, side, order_type, volume, price, **kwargs)
-        
-    def cancel_order(self, txid: str) -> bool:
-        """Cancel an existing order."""
-        return self.account.cancel_order(txid)
-        
-    def edit_order(self, txid: str, pair: str, volume: str, price: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        """Edit an existing order."""
-        return self.account.edit_order(txid, pair, volume, price, **kwargs)
-
-class KrakenAccount:
-    """Kraken WebSocket client for account operations."""
-    
-    def __init__(self, client: KrakenWebSocket):
-        self.client = client
-        self.auth = KrakenAuth(client.api_key, client.api_secret) if client.api_key and client.api_secret else None
-        self.orders = OrderManager(self)
-        
-    def _get_authenticated_message(self, base_message: Dict[str, Any]) -> Dict[str, Any]:
-        """Add authentication token to message."""
-        if not self.auth:
-            raise PermissionError("Account operations require API credentials")
-        token = self.auth.get_websocket_token()
-        message = base_message.copy()
-        message['token'] = token
-        return message
-    
-    def add_order(self, pair: str, side: str, order_type: str, volume: str, price: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        """Add a new order."""
-        if not self.client.connected:
-            raise ConnectionError("WebSocket is not connected")
-            
-        if side.lower() not in ['buy', 'sell']:
-            raise ValueError("Side must be 'buy' or 'sell'")
-            
-        valid_order_types = ['market', 'limit', 'stop-loss', 'stop-loss-limit', 
-                        'take-profit', 'take-profit-limit', 'trailing-stop', 
-                        'trailing-stop-limit', 'settle-position']
-        if order_type.lower() not in valid_order_types:
-            raise ValueError(f"Order type must be one of: {valid_order_types}")
-            
-        if order_type.lower() in ['limit', 'stop-loss-limit', 'take-profit-limit', 'trailing-stop-limit'] and not price:
-            raise ValueError(f"Price is required for {order_type} orders")
-            
-        # Convert volume and price to strings if they're numbers
-        if isinstance(volume, (int, float)):
-            volume = str(volume)
-        if price and isinstance(price, (int, float)):
-            price = str(price)
-            
-        order = {
-            "event": "addOrder",
-            "pair": pair,
-            "type": side.lower(),
-            "ordertype": order_type.lower(),
-            "volume": volume
+        data = {
+            'pair': pair,
+            'type': type,
+            'ordertype': ordertype,
+            'volume': volume,
+            'validate': validate
         }
         
-        if price:
-            order["price"] = price
-            
-        for key, value in kwargs.items():
-            if value is not None:
-                order[key] = value
-                
-        authenticated_order = self._get_authenticated_message(order)
-        self.client.send_message(authenticated_order, private=True)
-        logger.info(f"Added {order_type} {side} order for {volume} {pair}")
+        # Add optional parameters
+        if price is not None:
+            data['price'] = price
+        if price2 is not None:
+            data['price2'] = price2
+        if leverage is not None:
+            data['leverage'] = leverage
+        if oflags is not None:
+            data['oflags'] = oflags
+        if starttm is not None:
+            data['starttm'] = starttm
+        if expiretm is not None:
+            data['expiretm'] = expiretm
+        if userref is not None:
+            data['userref'] = userref
+        if close_ordertype is not None:
+            data['close[ordertype]'] = close_ordertype
+        if close_price is not None:
+            data['close[price]'] = close_price
+        if close_price2 is not None:
+            data['close[price2]'] = close_price2
+        if timeinforce is not None:
+            data['timeinforce'] = timeinforce
         
+        return await self._make_request('POST', 'private/AddOrder', data, is_private=True)
+    
+    async def cancel_order(self, txid: str) -> Dict:
+        """Cancel an order."""
+        data = {'txid': txid}
+        return await self._make_request('POST', 'private/CancelOrder', data, is_private=True)
+    
+    async def cancel_all_orders(self) -> Dict:
+        """Cancel all open orders."""
+        return await self._make_request('POST', 'private/CancelAll', is_private=True)
+    
+    async def cancel_all_orders_after(self, timeout: int) -> Dict:
+        """Cancel all orders after X seconds."""
+        data = {'timeout': timeout}
+        return await self._make_request('POST', 'private/CancelAllOrdersAfter', data, is_private=True)
+    
+    # Convenience Methods
+    async def buy_market_order(self, pair: str, volume: str, validate: bool = False) -> Dict:
+        """Place a market buy order."""
+        return await self.add_order(
+            pair=pair,
+            type='buy',
+            ordertype='market',
+            volume=volume,
+            validate=validate
+        )
+    
+    async def sell_market_order(self, pair: str, volume: str, validate: bool = False) -> Dict:
+        """Place a market sell order."""
+        return await self.add_order(
+            pair=pair,
+            type='sell',
+            ordertype='market',
+            volume=volume,
+            validate=validate
+        )
+    
+    async def buy_limit_order(self, pair: str, volume: str, price: str, validate: bool = False) -> Dict:
+        """Place a limit buy order."""
+        return await self.add_order(
+            pair=pair,
+            type='buy',
+            ordertype='limit',
+            volume=volume,
+            price=price,
+            validate=validate
+        )
+    
+    async def sell_limit_order(self, pair: str, volume: str, price: str, validate: bool = False) -> Dict:
+        """Place a limit sell order."""
+        return await self.add_order(
+            pair=pair,
+            type='sell',
+            ordertype='limit',
+            volume=volume,
+            price=price,
+            validate=validate
+        )
+    
+    async def get_portfolio_value(self, base_currency: str = 'USD') -> Dict[str, float]:
+        """Calculate total portfolio value in base currency."""
         try:
-            response = self.client.wait_for_response("addOrderStatus")
-            return self._parse_add_order_response(response)
+            balance = await self.get_account_balance()
+            
+            # For simplicity, this is a basic implementation
+            # In practice, you'd want to fetch current prices and convert everything
+            portfolio = {}
+            total_value = 0.0
+            
+            for asset, amount in balance.items():
+                amount_float = float(amount)
+                if amount_float > 0:
+                    portfolio[asset] = amount_float
+                    
+                    # Add value calculation logic here
+                    # You'd need to fetch current prices from markets.py
+                    
+            return portfolio
+            
         except Exception as e:
-            logger.error(f"Error waiting for add order response: {e}")
-            return {"error": str(e)}
-        
-    def cancel_order(self, txid: str) -> bool:
-        """Cancel an existing order."""
-        if not self.client.connected:
-            raise ConnectionError("WebSocket is not connected")
-            
-        cancel = {
-            "event": "cancelOrder",
-            "txid": [txid]
-        }
-        
-        authenticated_cancel = self._get_authenticated_message(cancel)
-        self.client.send_message(authenticated_cancel, private=True)
-        logger.info(f"Cancelled order {txid}")
-        
-        try:
-            response = self.client.wait_for_response("cancelOrderStatus")
-            return response.get("status") == "ok"
-        except Exception as e:
-            logger.error(f"Error waiting for cancel order response: {e}")
-            return False
-        
-    def edit_order(self, txid: str, pair: str, volume: str, price: Optional[str] = None, **kwargs) -> Dict[str, Any]:
-        """Edit an existing order."""
-        if not self.client.connected:
-            raise ConnectionError("WebSocket is not connected")
-            
-        # Convert volume and price to strings if they're numbers
-        if isinstance(volume, (int, float)):
-            volume = str(volume)
-        if price and isinstance(price, (int, float)):
-            price = str(price)
-            
-        edit = {
-            "event": "editOrder",
-            "orderid": txid,
-            "pair": pair,
-            "volume": volume
-        }
-        
-        if price:
-            edit["price"] = price
-            
-        for key, value in kwargs.items():
-            if value is not None:
-                edit[key] = value
-                
-        authenticated_edit = self._get_authenticated_message(edit)
-        self.client.send_message(authenticated_edit, private=True)
-        logger.info(f"Edited order {txid} for pair {pair}")
-        
-        try:
-            response = self.client.wait_for_response("editOrderStatus")
-            return self._parse_edit_order_response(response)
-        except Exception as e:
-            logger.error(f"Error waiting for edit order response: {e}")
-            return {"error": str(e)}
-        
-    def get_open_orders(self) -> Dict[str, Any]:
-        """Get all open orders using REST API."""
-        try:
-            url = "https://api.kraken.com/0/private/OpenOrders"
-            nonce = str(int(1000*time.time()))
-            data = {"nonce": nonce}
-            
-            headers = {
-                'API-Key': self.auth.api_key,
-                'API-Sign': self.auth.get_kraken_signature("/0/private/OpenOrders", data, self.auth.api_secret),
-                'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-            }
-            
-            response = requests.post(url, headers=headers, data=data, timeout=10)
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            logger.error(f"Error getting open orders via REST: {e}")
-            raise Exception(f"Failed to get open orders: {e}")
-
-    def get_balances(self) -> Dict[str, str]:
-        """Get account balances using REST API."""
-        try:
-            url = "https://api.kraken.com/0/private/Balance"
-            nonce = str(int(1000*time.time()))
-            data = {"nonce": nonce}
-            
-            headers = {
-                'API-Key': self.auth.api_key,
-                'API-Sign': self.auth.get_kraken_signature("/0/private/Balance", data, self.auth.api_secret),
-                'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8'
-            }
-            
-            response = requests.post(url, headers=headers, data=data, timeout=10)
-            response.raise_for_status()
-            return response.json().get('result', {})
-        except Exception as e:
-            logger.error(f"Error getting balances: {e}")
-            raise Exception(f"Failed to get balances: {e}")
-        
-    def subscribe_to_private_feed(self, subscription_name: str, **kwargs) -> None:
-        """Subscribe to a private WebSocket feed."""
-        if not self.client.connected:
-            raise ConnectionError("WebSocket is not connected")
-            
-        subscription = {
-            "event": "subscribe",
-            "subscription": {
-                "name": subscription_name
-            }
-        }
-        
-        for key, value in kwargs.items():
-            subscription["subscription"][key] = value
-            
-        token = self.auth.get_websocket_token()
-        subscription["subscription"]["token"] = token
-        
-        self.client.send_message(subscription, private=True)
-        logger.info(f"Subscribed to private feed: {subscription_name}")
+            logger.error(f"Error calculating portfolio value: {e}")
+            return {}
     
-    def _parse_add_order_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            'txid': response.get('txid'),
-            'status': response.get('status', 'unknown'),
-            'description': response.get('descr', ''),
-            'error_message': response.get('errorMessage', ''),
-            'event': response.get('event', ''),
-            'reqid': response.get('reqid')
-        }
-
-    def _parse_edit_order_response(self, response: Dict[str, Any]) -> Dict[str, Any]:
-        return {
-            'txid': response.get('txid'),
-            'original_txid': response.get('originaltxid'),
-            'status': response.get('status', 'unknown'),
-            'description': response.get('descr', ''),
-            'error_message': response.get('errorMessage', ''),
-            'event': response.get('event', ''),
-            'reqid': response.get('reqid')
-        }
-
-# Parsing functions
-def parse_own_trades(data: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Parse own trades data into a standardized format.
+    async def close(self):
+        """Close the aiohttp session."""
+        if self.session:
+            await self.session.close()
+            self.session = None
     
-    Args:
-        data: Raw trades data from WebSocket
-        
-    Returns:
-        List of parsed trade dictionaries
-    """
-    return [{
-        'price': float(trade['price']),
-        'volume': float(trade['vol']),
-        'time': trade['time'],
-        'type': trade['type'],
-        'ordertype': trade['ordertype'],
-        'misc': trade['misc']
-    } for trade in data]
-
-def parse_open_orders(data: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Parse open orders data into a standardized format.
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
     
-    Args:
-        data: Raw open orders data from WebSocket
-        
-    Returns:
-        List of parsed order dictionaries
-    """
-    orders = []
-    for txid, order in data.items():
-        orders.append({
-            'txid': txid,
-            'refid': order.get('refid'),
-            'userref': order.get('userref'),
-            'status': order.get('status'),
-            'opentm': float(order.get('opentm', 0)),
-            'starttm': float(order.get('starttm', 0)),
-            'expiretm': float(order.get('expiretm', 0)),
-            'descr': {
-                'pair': order['descr']['pair'],
-                'type': order['descr']['type'],
-                'ordertype': order['descr']['ordertype'],
-                'price': order['descr']['price'],
-                'price2': order['descr']['price2'],
-                'leverage': order['descr']['leverage'],
-                'order': order['descr']['order'],
-                'close': order['descr'].get('close')
-            },
-            'vol': float(order.get('vol', 0)),
-            'vol_exec': float(order.get('vol_exec', 0)),
-            'cost': float(order.get('cost', 0)),
-            'fee': float(order.get('fee', 0)),
-            'price': float(order.get('price', 0)),
-            'stopprice': float(order.get('stopprice', 0)),
-            'limitprice': float(order.get('limitprice', 0)),
-            'misc': order.get('misc', ''),
-            'oflags': order.get('oflags', ''),
-            'reason': order.get('reason')
-        })
-    return orders
-
-def parse_balances(data: Dict[str, Any]) -> Dict[str, float]:
-    """
-    Parse balances response data into a standardized format.
-    
-    Args:
-        data: Raw balances response from WebSocket
-        
-    Returns:
-        Dictionary of asset balances with float values
-    """
-    return {
-        asset: float(balance)
-        for asset, balance in data.items()
-    }
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
