@@ -13,3 +13,10 @@ krakenex
 websocket-client
 requests
 python-dateutil
+pyyaml
+rich
+pyfiglet
+boto3
+pandas
+websockets
+aiohttp
