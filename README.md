@@ -7,11 +7,11 @@ TradeByte is a modular crypto trading bot platform built exclusively for Kraken,
 Together, Python and Rust combine to deliver a flexible yet powerful framework that supports both high-level strategy development and low-level system performance.
 
 ## Project Overview
-Black Swan is a modular trading strategy manager designed for flexibility, performance, and extensibility. It allows users to create custom trading strategies, backtest them on historical data, paper trade in real-time without risking capital, and transition seamlessly into live trading. The platform also provides detailed analytics and performance statistics to help users evaluate and refine their strategies.
+TradeByte is a modular trading strategy manager designed for flexibility, performance, and extensibility. It allows users to create custom trading strategies, backtest them on historical data, paper trade in real-time without risking capital, and transition seamlessly into live trading. The platform also provides detailed analytics and performance statistics to help users evaluate and refine their strategies.
 
 The project is built with Python and Rust, combining the ease and flexibility of Python for high-level strategy logic and orchestration, with the speed and safety of Rust for low-level performance-critical components. Python powers the strategy engine, configuration handling, and overall control flow, while Rust is used for communicating with the Kraken exchange, ensuring fast and reliable data fetching for bid/ask prices and other market data.
 
-Black Swan is designed to be lightweight and adaptable—ideal for developers, quant enthusiasts, and traders who want full control over how their strategies are designed, tested, and executed.
+TradeByte is designed to be lightweight and adaptable—ideal for developers, quant enthusiasts, and traders who want full control over how their strategies are designed, tested, and executed.
 
 ## Features
 
@@ -21,12 +21,27 @@ Black Swan is designed to be lightweight and adaptable—ideal for developers, q
 - **Backtesting Engine** – Test strategies against historical Kraken market data.
 - **Logging & Performance Analytics** – Track trades, performance, and KPIs over time.
 - **Secure Config Management** – Store keys and strategy parameters safely via config files.
+- **Real-time Market Making** – Advanced market making strategy with automatic restart capabilities.
+- **WebSocket Integration** – Robust WebSocket handling for real-time market data and order management.
+
+## Recent Updates
+
+### Market Maker Strategy Improvements
+- **Automatic Restart**: The market maker strategy now automatically restarts if the connection is lost
+- **Order Editing**: Implemented efficient order editing to minimize API calls and reduce latency
+- **Fixed Ladder Size**: Standardized to 5 orders per side for consistent market making
+- **Error Handling**: Enhanced error handling and logging for better debugging
+
+### WebSocket Enhancements
+- **Connection State Management**: Fixed WebSocket connection state checking for better reliability
+- **Message Format Handling**: Improved handling of different Kraken WebSocket message formats
+- **Robust Error Recovery**: Better error handling and recovery mechanisms
 
 ## Exchanges Supported
 
 | Exchange              | Support Status       | Notes               |
 |-----------------------|----------------------|---------------------|
-| Kraken                | Fully supported      | —                   |
+| Kraken                | Fully supported      | REST & WebSocket APIs |
 | Binance US            | Fully supported      | —                   |
 | Binance International | Support coming soon  | Not yet available   |
 | Hyperliquid           | Support coming soon  | Not yet available   |
@@ -40,11 +55,11 @@ Black Swan is designed to be lightweight and adaptable—ideal for developers, q
 
 ### 1. Clone the repository
 ```bash
-git clone https://github.com/GoneInactive/Black-Swan.git
-cd black-swan
+git clone https://github.com/GoneInactive/TradeByte.git
+cd TradeByte
 ```
 
-### 2. Set up your virtual enviroment
+### 2. Set up your virtual environment
 
 On Windows:
 ```bash
@@ -55,7 +70,7 @@ OR
 ```
 python -m venv venv
 venv\Scripts\activate.bat
-set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1     # Do this if error during matruin develop
+set PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1     # Do this if error during maturin develop
 ```
 
 On Mac:
@@ -76,20 +91,20 @@ cd ..  # If not already in main directory
 pip install -r requirements.txt
 ```
 
-### 5. Get your Kraken api keys
-1. Sign into your Kraken account using Kraken pro
+### 5. Get your Kraken API keys
+1. Sign into your Kraken account using Kraken Pro
 2. Click on your profile (top right corner)
 3. Select settings
 4. Select the `API` tab
 5. Click `Create API key`
 6. Select appropriate permissions
-7. Clcik `Generate key` at the bottom
+7. Click `Generate key` at the bottom
 
 ### 6. Set up your configuration
-Open up `config/config.yaml` paste your keys and adjust settings as necessary.
+Create a `config/config.yaml` file and paste your keys and adjust settings as necessary.
 
 ### 7. Run tests (Optional)
-In the `config/config.yaml` directory, there are various tests to ensure the program is working properly.
+In the main directory, there are various tests to ensure the program is working properly.
 ```bash
 python tests/(test).py
 ```
@@ -98,6 +113,12 @@ Example:
 ```bash
 python tests/test_rust_client.py
 ```
+
+### 8. Run the Market Maker Strategy
+```bash
+python src/apps/strategies/market_maker.py
+```
+
 ---
 ## Project Structure
 ---
@@ -106,9 +127,14 @@ TradeByte/
 ├── README.md
 ├── LICENSE
 ├── .gitignore
-├── requirements.txt / environment.yml
+├── requirements.txt
 ├── config/
 │   └── config.yaml
+├── kraken_ws/
+│   ├── __init__.py
+│   ├── kraken_ws.py          # Main WebSocket client
+│   ├── account.py            # Account management
+│   └── markets.py            # Market data handling
 ├── rust_client/
 │   ├── Cargo.toml            
 │   └── src/
@@ -126,32 +152,35 @@ TradeByte/
 │   ├── trader.py
 │   ├── kraken_api.py
 │   ├── config_load.py
-│   ├── strategy/
-│   │   ├── __init__.py
-│   │   ├── moving_average.py
-│   │   └── rsi.py
+│   ├── apps/
+│   │   ├── data-collector/
+│   │   ├── execution/
+│   │   ├── paper-trader/
+│   │   ├── portfolio-manager/
+│   │   └── strategies/
+│   │       └── market_maker.py    # Market making strategy
 │   ├── clients/
-│   │   └── __init__.py
-│   │   └── kraken_python_client.py
+│   │   ├── __init__.py
+│   │   ├── kraken_python_client.py
 │   │   └── kraken_sync_client.py
 │   ├── utils/
-│   │   └── helpers.py
-│   │   └── plotter.py
+│   │   ├── helpers.py
+│   │   ├── plotter.py
 │   │   └── account_tools.py
 ├── tests/
 │   ├── test_strategy.py
-│   └── test_api.py
-│   └── test_kraken_client.py
+│   ├── test_api.py
+│   ├── test_kraken_client.py
 │   └── test_rust_client.py
 └── docs/
     └── architecture.md
 ```
 ---
 ## Python-Rust Integration
-Black Swan leverages the power of Rust for performance-critical operations, like interacting with the Kraken API, while Python is used for higher-level strategy development, backtesting, and other logic. This integration combines the best of both languages: Rust for speed and Python for flexibility.
+TradeByte leverages the power of Rust for performance-critical operations, like interacting with the Kraken API, while Python is used for higher-level strategy development, backtesting, and other logic. This integration combines the best of both languages: Rust for speed and Python for flexibility.
 
 ### Rust Functions in Python
-Rust functions are exposed to Python via `maturin`, which allows you to build and package Rust extensions into Python modules. For example, functions like `get_bid()` and `get_ask()` retrieve real-time market data from Kraken using Rust’s speed.
+Rust functions are exposed to Python via `maturin`, which allows you to build and package Rust extensions into Python modules. For example, functions like `get_bid()` and `get_ask()` retrieve real-time market data from Kraken using Rust's speed.
 * `get_bid()` Fetches the current bid price for the selected trading pair.
 * `get_ask()` Fetches the current ask price for the selected trading pair.
 
@@ -178,10 +207,41 @@ Rust handles the Kraken API requests efficiently. When you call functions like `
 
 ---
 
-### Contributing
+## Market Making Strategy
+
+The market making strategy (`src/apps/strategies/market_maker.py`) is a sophisticated automated trading system that:
+
+- **Maintains Order Books**: Continuously places and manages buy/sell orders
+- **Dynamic Pricing**: Adjusts prices based on market conditions and reference prices
+- **Risk Management**: Implements position sizing and order limits
+- **Automatic Recovery**: Restarts automatically if connections are lost
+- **Efficient Updates**: Uses order editing when possible to minimize API calls
+
+### Key Features:
+- **Fixed Ladder Size**: 5 orders per side for consistent market making
+- **Order Editing**: Efficiently updates existing orders instead of canceling/replacing
+- **Connection Recovery**: Automatic restart on connection loss
+- **Real-time Updates**: Processes order book updates in real-time
+
+---
+
+## Contributing
 Follow https://opensource.guide/
 
 ---
 ## Troubleshooting
-Will update as common problems arise.
+
+### Common Issues
+
+1. **WebSocket Connection Errors**: The system now automatically restarts on connection loss
+2. **Order Placement Failures**: Check your API permissions and account balance
+3. **Rust Build Issues**: Ensure you have the latest version of `maturin` installed
+
+### Recent Fixes
+- Fixed WebSocket connection state checking
+- Improved message format handling for Kraken WebSocket API
+- Enhanced error handling and logging
+- Added automatic restart capabilities for market maker strategy
+
+---
 
